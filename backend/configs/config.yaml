@@ -1,0 +1,153 @@
+# Application Configuration
+app:
+  name: "Financial Risk Intelligence Platform"
+  version: "1.0.0"
+  environment: "development"  # development, production
+
+# Stocks to Monitor
+stocks:
+  universe: "nifty50"
+  symbols:
+    - "RELIANCE.NS"
+    - "TCS.NS"
+    - "HDFCBANK.NS"
+    - "INFY.NS"
+    - "ICICIBANK.NS"
+    - "HINDUNILVR.NS"
+    - "ITC.NS"
+    - "SBIN.NS"
+    - "BHARTIARTL.NS"
+    - "BAJFINANCE.NS"
+    - "KOTAKBANK.NS"
+    - "LT.NS"
+    - "AXISBANK.NS"
+    - "ASIANPAINT.NS"
+    - "MARUTI.NS"
+    - "TITAN.NS"
+    - "SUNPHARMA.NS"
+    - "ULTRACEMCO.NS"
+    - "NESTLEIND.NS"
+    - "WIPRO.NS"
+    - "HCLTECH.NS"
+    - "POWERGRID.NS"
+    - "NTPC.NS"
+    - "M&M.NS"
+    - "TATAMOTORS.NS"
+    - "ONGC.NS"
+    - "BAJAJFINSV.NS"
+    - "ADANIPORTS.NS"
+    - "COALINDIA.NS"
+    - "DIVISLAB.NS"
+    - "DRREDDY.NS"
+    - "EICHERMOT.NS"
+    - "GRASIM.NS"
+    - "HEROMOTOCO.NS"
+    - "HINDALCO.NS"
+    - "INDUSINDBK.NS"
+    - "JSWSTEEL.NS"
+    - "BRITANNIA.NS"
+    - "CIPLA.NS"
+    - "APOLLOHOSP.NS"
+    - "TECHM.NS"
+    - "TATACONSUM.NS"
+    - "TATASTEEL.NS"
+    - "UPL.NS"
+    - "BPCL.NS"
+    - "SHRIRAMFIN.NS"
+    - "ADANIENT.NS"
+    - "LTIM.NS"
+    - "BAJAJ-AUTO.NS"
+    - "SBILIFE.NS"
+
+# Data Sources
+data_sources:
+  market_data:
+    provider: "yfinance"
+    history_days: 365
+    interval: "1d"
+  
+  news:
+    sources:
+      - name: "MoneyControl"
+        url: "https://www.moneycontrol.com"
+        enabled: true
+      - name: "Economic Times"
+        url: "https://economictimes.indiatimes.com"
+        enabled: true
+    
+    scraping:
+      max_articles_per_source: 50
+      request_delay: 2  # seconds between requests
+      timeout: 10
+
+# Agent Configuration
+agents:
+  market_data:
+    features:
+      - "returns"
+      - "volatility_21d"
+      - "volatility_60d"
+      - "max_drawdown"
+      - "beta"
+      - "sharpe_ratio"
+      - "atr"
+      - "liquidity"
+    benchmark: "^NSEI"  # Nifty 50 index
+  
+  sentiment:
+    model: "ProsusAI/finbert"  # FinBERT
+    batch_size: 16
+    max_length: 512
+  
+  rag:
+    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+    vector_db: "faiss"  # faiss or chroma
+    chunk_size: 512
+    chunk_overlap: 50
+    top_k: 5
+    llm:
+      provider: "ollama"  # ollama or huggingface
+      model: "llama3"  # for ollama
+      # model: "google/flan-t5-base"  # for huggingface
+  
+  risk_scoring:
+    weights:
+      volatility: 0.4
+      drawdown: 0.3
+      sentiment: 0.2
+      liquidity: 0.1
+    thresholds:
+      low: 0.3
+      medium: 0.6
+      high: 0.8
+  
+  alert:
+    triggers:
+      - "high_risk"
+      - "sudden_spike"
+    notification:
+      console: true
+      email: false
+
+# Flask API
+api:
+  host: "0.0.0.0"
+  port: 5000
+  debug: true
+  cors_origins: ["http://localhost:3000"]
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>"
+  log_file: "logs/app.log"
+  rotation: "500 MB"
+  retention: "10 days"
+
+# Paths
+paths:
+  data_raw: "backend/data/raw"
+  data_processed: "backend/data/processed"
+  features: "backend/data/features"
+  vector_db: "backend/data/vector_db"
+  logs: "logs"
