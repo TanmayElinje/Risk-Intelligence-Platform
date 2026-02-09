@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-md p-6;
+  }
+  
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+  
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+  
+  .badge {
+    @apply px-2 py-1 rounded text-xs font-semibold;
+  }
+  
+  .badge-high {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .badge-medium {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-low {
+    @apply bg-green-100 text-green-800;
+  }
+}

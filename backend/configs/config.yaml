@@ -5,59 +5,60 @@ app:
   environment: "development"  # development, production
 
 # Stocks to Monitor
+# Stocks to Monitor (Using US stocks for reliable data)
 stocks:
-  universe: "nifty50"
+  universe: "tech50"
   symbols:
-    - "RELIANCE.NS"
-    - "TCS.NS"
-    - "HDFCBANK.NS"
-    - "INFY.NS"
-    - "ICICIBANK.NS"
-    - "HINDUNILVR.NS"
-    - "ITC.NS"
-    - "SBIN.NS"
-    - "BHARTIARTL.NS"
-    - "BAJFINANCE.NS"
-    - "KOTAKBANK.NS"
-    - "LT.NS"
-    - "AXISBANK.NS"
-    - "ASIANPAINT.NS"
-    - "MARUTI.NS"
-    - "TITAN.NS"
-    - "SUNPHARMA.NS"
-    - "ULTRACEMCO.NS"
-    - "NESTLEIND.NS"
-    - "WIPRO.NS"
-    - "HCLTECH.NS"
-    - "POWERGRID.NS"
-    - "NTPC.NS"
-    - "M&M.NS"
-    - "TATAMOTORS.NS"
-    - "ONGC.NS"
-    - "BAJAJFINSV.NS"
-    - "ADANIPORTS.NS"
-    - "COALINDIA.NS"
-    - "DIVISLAB.NS"
-    - "DRREDDY.NS"
-    - "EICHERMOT.NS"
-    - "GRASIM.NS"
-    - "HEROMOTOCO.NS"
-    - "HINDALCO.NS"
-    - "INDUSINDBK.NS"
-    - "JSWSTEEL.NS"
-    - "BRITANNIA.NS"
-    - "CIPLA.NS"
-    - "APOLLOHOSP.NS"
-    - "TECHM.NS"
-    - "TATACONSUM.NS"
-    - "TATASTEEL.NS"
-    - "UPL.NS"
-    - "BPCL.NS"
-    - "SHRIRAMFIN.NS"
-    - "ADANIENT.NS"
-    - "LTIM.NS"
-    - "BAJAJ-AUTO.NS"
-    - "SBILIFE.NS"
+    - "AAPL"    # Apple
+    - "MSFT"    # Microsoft
+    - "GOOGL"   # Google
+    - "AMZN"    # Amazon
+    - "NVDA"    # NVIDIA
+    - "META"    # Meta (Facebook)
+    - "TSLA"    # Tesla
+    - "NFLX"    # Netflix
+    - "ADBE"    # Adobe
+    - "CRM"     # Salesforce
+    - "ORCL"    # Oracle
+    - "CSCO"    # Cisco
+    - "INTC"    # Intel
+    - "AMD"     # AMD
+    - "QCOM"    # Qualcomm
+    - "TXN"     # Texas Instruments
+    - "AVGO"    # Broadcom
+    - "INTU"    # Intuit
+    - "AMAT"    # Applied Materials
+    - "LRCX"    # Lam Research
+    - "MU"      # Micron
+    - "KLAC"    # KLA Corporation
+    - "SNPS"    # Synopsys
+    - "CDNS"    # Cadence
+    - "MCHP"    # Microchip
+    - "MRVL"    # Marvell
+    - "NXPI"    # NXP Semiconductors
+    - "ADI"     # Analog Devices
+    - "SWKS"    # Skyworks
+    - "QRVO"    # Qorvo
+    - "UBER"    # Uber
+    - "ABNB"    # Airbnb
+    - "SNOW"    # Snowflake
+    - "ZM"      # Zoom
+    - "DOCU"    # DocuSign
+    - "SHOP"    # Shopify
+    - "SQ"      # Block (Square)
+    - "COIN"    # Coinbase
+    - "RBLX"    # Roblox
+    - "DDOG"    # Datadog
+    - "NET"     # Cloudflare
+    - "CRWD"    # CrowdStrike
+    - "ZS"      # Zscaler
+    - "PANW"    # Palo Alto Networks
+    - "FTNT"    # Fortinet
+    - "OKTA"    # Okta
+    - "SPLK"    # Splunk
+    - "NOW"     # ServiceNow
+    - "WDAY"    # Workday
+    - "TEAM"    # Atlassian
 
 # Data Sources
 data_sources:
@@ -92,7 +93,7 @@ agents:
       - "sharpe_ratio"
       - "atr"
       - "liquidity"
-    benchmark: "^NSEI"  # Nifty 50 index
+    benchmark: "^GSPC"  # S&P 500 index
   
   sentiment:
     model: "ProsusAI/finbert"  # FinBERT

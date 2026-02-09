@@ -1,6 +1,6 @@
 """
 Flask API module
 """
-# This will be populated in Step 8
+from backend.api.app import create_app, run_server
 
-__all__ = []
+__all__ = ['create_app', 'run_server']
