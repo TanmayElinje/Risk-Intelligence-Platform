@@ -1,261 +1,325 @@
 """
-API Routes
+API Routes - Now using PostgreSQL
 """
 from flask import Blueprint, jsonify, request
-from datetime import datetime, timedelta
+from backend.utils import log
+from backend.database import DatabaseService
+from backend.agents.rag_agent import NewsRAGAgent
+from datetime import datetime, timedelta, date
 import pandas as pd
-from backend.utils import log, load_config, load_dataframe
-from backend.agents import NewsRAGAgent
 
-# Create blueprint
 api_bp = Blueprint('api', __name__)
 
-# Initialize RAG agent (lazy loading)
+# Global RAG agent (lazy loaded)
 _rag_agent = None
 
 def get_rag_agent():
     """Get or initialize RAG agent"""
     global _rag_agent
+    
     if _rag_agent is None:
         try:
+            log.info("Initializing RAG agent for API...")
             _rag_agent = NewsRAGAgent()
             _rag_agent.vector_store = _rag_agent.load_vector_store()
-            log.info("RAG agent initialized for API")
+            
+            if _rag_agent.vector_store:
+                log.info(f"RAG agent initialized successfully")
+            else:
+                log.warning("RAG agent initialized but no vector store found")
+                
         except Exception as e:
             log.error(f"Failed to initialize RAG agent: {str(e)}")
             _rag_agent = None
+    
     return _rag_agent
-
-def load_risk_scores():
-    """Load risk scores"""
-    config = load_config()
-    path = f"{config['paths']['data_processed']}/risk_scores.csv"
-    try:
-        return load_dataframe(path, format='csv')
-    except:
-        return pd.DataFrame()
-
-def load_alerts():
-    """Load alerts"""
-    config = load_config()
-    path = f"{config['paths']['data_processed']}/alerts.csv"
-    try:
-        return load_dataframe(path, format='csv')
-    except:
-        return pd.DataFrame()
-
-def load_sentiment():
-    """Load sentiment scores"""
-    config = load_config()
-    path = f"{config['paths']['data_processed']}/sentiment_scores.csv"
-    try:
-        return load_dataframe(path, format='csv')
-    except:
-        return pd.DataFrame()
-
-def load_market_features():
-    """Load market features"""
-    config = load_config()
-    path = f"{config['paths']['features']}/market_features.parquet"
-    try:
-        return load_dataframe(path, format='parquet')
-    except:
-        return pd.DataFrame()
-
-def load_risk_history():
-    """Load risk history"""
-    config = load_config()
-    path = f"{config['paths']['data_processed']}/risk_history.csv"
-    try:
-        df = load_dataframe(path, format='csv')
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        return df
-    except:
-        return pd.DataFrame()
-
-# ============================================
-# ROUTES
-# ============================================
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'service': 'Risk Intelligence API'
+        'timestamp': datetime.utcnow().isoformat(),
+        'database': 'connected'
     })
+
+@api_bp.route('/stats', methods=['GET'])
+def get_stats():
+    """Get overall statistics"""
+    try:
+        with DatabaseService() as db:
+            risk_scores = db.get_latest_risk_scores()
+            alerts = db.get_recent_alerts(limit=1000)
+            
+            if risk_scores.empty:
+                return jsonify({'error': 'No data available'}), 404
+            
+            stats = {
+                'total_stocks': len(risk_scores),
+                'high_risk_stocks': len(risk_scores[risk_scores['risk_level'] == 'High']),
+                'medium_risk_stocks': len(risk_scores[risk_scores['risk_level'] == 'Medium']),
+                'low_risk_stocks': len(risk_scores[risk_scores['risk_level'] == 'Low']),
+                'avg_risk_score': float(risk_scores['risk_score'].mean()),
+                'avg_sentiment': float(risk_scores['avg_sentiment'].mean()) if 'avg_sentiment' in risk_scores.columns else 0,
+                'total_alerts': len(alerts),
+                'last_updated': datetime.utcnow().isoformat()
+            }
+            
+            return jsonify(stats)
+            
+    except Exception as e:
+        log.error(f"Error in get_stats: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/risk-scores', methods=['GET'])
 def get_risk_scores():
-    """
-    Get all risk scores
-    
-    Query params:
-        - risk_level: Filter by risk level (Low, Medium, High)
-        - limit: Limit number of results
-    """
+    """Get all risk scores with optional filtering"""
     try:
-        risk_df = load_risk_scores()
-        
-        if risk_df.empty:
-            return jsonify({'error': 'No risk data available'}), 404
-        
-        # Filter by risk level if specified
         risk_level = request.args.get('risk_level')
-        if risk_level:
-            risk_df = risk_df[risk_df['risk_level'] == risk_level]
-        
-        # Limit results if specified
         limit = request.args.get('limit', type=int)
-        if limit:
-            risk_df = risk_df.head(limit)
         
-        # Convert to dict
-        data = risk_df.to_dict(orient='records')
-        
-        return jsonify({
-            'count': len(data),
-            'data': data
-        })
-        
+        with DatabaseService() as db:
+            risk_scores = db.get_latest_risk_scores()
+            
+            if risk_scores.empty:
+                return jsonify({'error': 'No data available'}), 404
+            
+            # Filter by risk level
+            if risk_level:
+                risk_scores = risk_scores[risk_scores['risk_level'] == risk_level]
+            
+            # Limit results
+            if limit:
+                risk_scores = risk_scores.head(limit)
+            
+            # Convert to dict
+            data = risk_scores.to_dict('records')
+            
+            # Convert numpy types to Python types
+            for record in data:
+                for key, value in record.items():
+                    if pd.isna(value):
+                        record[key] = None
+                    elif isinstance(value, (pd.Timestamp, datetime)):
+                        record[key] = value.isoformat()
+            
+            return jsonify({
+                'count': len(data),
+                'data': data
+            })
+            
     except Exception as e:
         log.error(f"Error in get_risk_scores: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/stock/<symbol>', methods=['GET'])
 def get_stock_details(symbol):
-    """
-    Get detailed information for a specific stock
-    
-    Params:
-        symbol: Stock symbol (e.g., AAPL)
-    """
+    """Get detailed information for a specific stock"""
     try:
-        # Get risk score
-        risk_df = load_risk_scores()
-        stock_risk = risk_df[risk_df['symbol'] == symbol]
-        
-        if stock_risk.empty:
-            return jsonify({'error': f'Stock {symbol} not found'}), 404
-        
-        stock_data = stock_risk.iloc[0].to_dict()
-        
-        # Get sentiment history
-        sentiment_df = load_sentiment()
-        if not sentiment_df.empty:
-            stock_sentiment = sentiment_df[sentiment_df['stock_symbol'] == symbol]
-            stock_data['sentiment_history'] = stock_sentiment.to_dict(orient='records')
-        
-        # Get recent alerts
-        alerts_df = load_alerts()
-        if not alerts_df.empty:
-            stock_alerts = alerts_df[alerts_df['symbol'] == symbol]
-            stock_data['recent_alerts'] = stock_alerts.tail(5).to_dict(orient='records')
-        
-        # Get risk history
-        history_df = load_risk_history()
-        if not history_df.empty:
-            stock_history = history_df[history_df['symbol'] == symbol]
-            stock_data['risk_history'] = stock_history.tail(30).to_dict(orient='records')
-        
-        return jsonify(stock_data)
-        
+        with DatabaseService() as db:
+            # Get latest risk score
+            risk_scores = db.get_latest_risk_scores()
+            stock_risk = risk_scores[risk_scores['symbol'] == symbol]
+            
+            # FIX: Use .empty instead of boolean check
+            if stock_risk.empty:
+                return jsonify({'error': f'Stock {symbol} not found'}), 404
+            
+            stock_data = stock_risk.iloc[0].to_dict()
+            
+            # Convert all numpy/pandas types to Python types
+            for key, value in stock_data.items():
+                if pd.isna(value):
+                    stock_data[key] = None
+                elif isinstance(value, (pd.Timestamp, datetime)):
+                    stock_data[key] = value.isoformat()
+                elif hasattr(value, 'item'):  # numpy types
+                    stock_data[key] = value.item()
+            
+            # Get market data (latest)
+            market_data = db.get_market_data(symbol=symbol, days=365)
+            if not market_data.empty:  # FIX: Added .empty
+                latest_market = market_data.iloc[-1]
+                stock_data['Close'] = float(latest_market['Close']) if pd.notna(latest_market['Close']) else None
+                stock_data['Volume'] = int(latest_market['Volume']) if pd.notna(latest_market['Volume']) else None
+            else:
+                stock_data['Close'] = None
+                stock_data['Volume'] = None
+            
+            # Get sentiment history
+            sentiment_history = db.get_recent_sentiment(days=30)
+            if not sentiment_history.empty:  # FIX: Added .empty
+                sentiment_history = sentiment_history[sentiment_history['stock_symbol'] == symbol]
+                sentiment_list = []
+                for _, row in sentiment_history.iterrows():
+                    sentiment_list.append({
+                        'date': row['date'].isoformat() if isinstance(row['date'], (pd.Timestamp, datetime)) else str(row['date']),
+                        'avg_sentiment': float(row['avg_sentiment']) if pd.notna(row['avg_sentiment']) else 0,
+                        'article_count': int(row['article_count']) if pd.notna(row['article_count']) else 0
+                    })
+                stock_data['sentiment_history'] = sentiment_list
+            else:
+                stock_data['sentiment_history'] = []
+            
+            # Get risk history
+            risk_history = db.get_risk_history(symbol=symbol, days=30)
+            if not risk_history.empty:  # FIX: Added .empty
+                risk_list = []
+                for _, row in risk_history.iterrows():
+                    risk_list.append({
+                        'timestamp': row['timestamp'].isoformat() if isinstance(row['timestamp'], (pd.Timestamp, datetime)) else str(row['timestamp']),
+                        'risk_score': float(row['risk_score']) if pd.notna(row['risk_score']) else None,
+                        'risk_level': str(row['risk_level']) if pd.notna(row['risk_level']) else None
+                    })
+                stock_data['risk_history'] = risk_list
+            else:
+                stock_data['risk_history'] = []
+            
+            # Get recent alerts
+            alerts = db.get_recent_alerts(limit=100)
+            stock_alerts = [a for a in alerts if a['symbol'] == symbol]
+            # Convert timestamps in alerts
+            for alert in stock_alerts[:10]:
+                if isinstance(alert.get('timestamp'), datetime):
+                    alert['timestamp'] = alert['timestamp'].isoformat()
+            stock_data['recent_alerts'] = stock_alerts[:10]
+            
+            return jsonify(stock_data)
+            
     except Exception as e:
-        log.error(f"Error in get_stock_details: {str(e)}")
+        log.error(f"Error in get_stock_details for {symbol}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/alerts', methods=['GET'])
 def get_alerts():
-    """
-    Get recent alerts
-    
-    Query params:
-        - limit: Number of alerts to return (default: 20)
-        - severity: Filter by severity (HIGH, MEDIUM)
-    """
+    """Get recent alerts with optional filtering"""
     try:
-        alerts_df = load_alerts()
-        
-        if alerts_df.empty:
-            return jsonify({'count': 0, 'data': []})
-        
-        # Filter by severity if specified
         severity = request.args.get('severity')
-        if severity:
-            alerts_df = alerts_df[alerts_df['severity'] == severity.upper()]
+        limit = request.args.get('limit', 100, type=int)
         
-        # Sort by timestamp
-        if 'timestamp' in alerts_df.columns:
-            alerts_df['timestamp'] = pd.to_datetime(alerts_df['timestamp'])
-            alerts_df = alerts_df.sort_values('timestamp', ascending=False)
-        
-        # Limit results
-        limit = request.args.get('limit', default=20, type=int)
-        alerts_df = alerts_df.head(limit)
-        
-        data = alerts_df.to_dict(orient='records')
-        
-        return jsonify({
-            'count': len(data),
-            'data': data
-        })
-        
+        with DatabaseService() as db:
+            alerts = db.get_recent_alerts(limit=limit)
+            
+            # Filter by severity
+            if severity:
+                alerts = [a for a in alerts if a['severity'] == severity]
+            
+            # Convert timestamps
+            for alert in alerts:
+                if isinstance(alert.get('timestamp'), datetime):
+                    alert['timestamp'] = alert['timestamp'].isoformat()
+            
+            return jsonify({
+                'count': len(alerts),
+                'data': alerts
+            })
+            
     except Exception as e:
         log.error(f"Error in get_alerts: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/sentiment-trends', methods=['GET'])
 def get_sentiment_trends():
-    """
-    Get sentiment trends over time
-    
-    Query params:
-        - symbol: Filter by stock symbol
-        - days: Number of days to include (default: 30)
-    """
+    """Get sentiment trends over time"""
     try:
-        sentiment_df = load_sentiment()
-        
-        if sentiment_df.empty:
-            return jsonify({'count': 0, 'data': []})
-        
-        # Filter by symbol if specified
         symbol = request.args.get('symbol')
-        if symbol:
-            sentiment_df = sentiment_df[sentiment_df['stock_symbol'] == symbol]
+        days = request.args.get('days', 30, type=int)
         
-        # Filter by date range
-        days = request.args.get('days', default=30, type=int)
-        sentiment_df['date'] = pd.to_datetime(sentiment_df['date'])
-        cutoff_date = datetime.now() - timedelta(days=days)
-        sentiment_df = sentiment_df[sentiment_df['date'] >= cutoff_date]
-        
-        # Sort by date
-        sentiment_df = sentiment_df.sort_values('date')
-        
-        data = sentiment_df.to_dict(orient='records')
-        
-        return jsonify({
-            'count': len(data),
-            'data': data
-        })
-        
+        with DatabaseService() as db:
+            sentiment_data = db.get_recent_sentiment(days=days)
+            
+            if symbol:
+                sentiment_data = sentiment_data[sentiment_data['stock_symbol'] == symbol]
+            
+            data = sentiment_data.to_dict('records')
+            
+            # Convert dates
+            for record in data:
+                if isinstance(record.get('date'), datetime):
+                    record['date'] = record['date'].isoformat()
+            
+            return jsonify({
+                'count': len(data),
+                'data': data
+            })
+            
     except Exception as e:
         log.error(f"Error in get_sentiment_trends: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@api_bp.route('/top-risks', methods=['GET'])
+def get_top_risks():
+    """Get top risky stocks"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        
+        with DatabaseService() as db:
+            risk_scores = db.get_latest_risk_scores()
+            
+            if risk_scores.empty:
+                return jsonify({'error': 'No data available'}), 404
+            
+            # Get top risky stocks
+            top_risks = risk_scores.head(limit)
+            
+            data = top_risks.to_dict('records')
+            
+            # Convert types
+            for record in data:
+                for key, value in record.items():
+                    if pd.isna(value):
+                        record[key] = None
+            
+            return jsonify({
+                'count': len(data),
+                'data': data
+            })
+            
+    except Exception as e:
+        log.error(f"Error in get_top_risks: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/market-features/<symbol>', methods=['GET'])
+def get_market_features(symbol):
+    """Get historical market features for a stock"""
+    try:
+        days = request.args.get('days', 90, type=int)
+        
+        with DatabaseService() as db:
+            # Use the new method with features
+            market_data = db.get_market_data_with_features(symbol, days=days)
+            
+            if market_data.empty:
+                return jsonify({'error': f'No data found for {symbol}'}), 404
+            
+            # Convert to records
+            data = []
+            for _, row in market_data.iterrows():
+                record = {
+                    'Date': row['Date'].isoformat() if isinstance(row['Date'], (datetime, pd.Timestamp, date)) else str(row['Date']),
+                    'Close': float(row['Close']) if pd.notna(row['Close']) else None,
+                    'Volume': int(row['Volume']) if pd.notna(row['Volume']) else None,
+                    'volatility_21d': float(row['volatility_21d']) if pd.notna(row.get('volatility_21d')) else None,
+                }
+                data.append(record)
+            
+            return jsonify({
+                'symbol': symbol,
+                'count': len(data),
+                'data': data
+            })
+            
+    except Exception as e:
+        log.error(f"Error in get_market_features: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 @api_bp.route('/query-rag', methods=['POST'])
 def query_rag():
-    """
-    Query RAG system for explanations
-    
-    Body:
-        {
-            "query": "Why is AAPL risk high?",
-            "stock_symbol": "AAPL"  (optional)
-        }
-    """
+    """Query RAG system for explanations"""
     try:
         data = request.get_json()
         
@@ -270,157 +334,62 @@ def query_rag():
         
         if rag_agent is None or rag_agent.vector_store is None:
             return jsonify({
-                'error': 'RAG system not available',
                 'query': query,
-                'explanation': 'The knowledge base is not currently available.'
-            }), 503
+                'stock_symbol': stock_symbol,
+                'explanation': 'The RAG knowledge base is currently being initialized. Please try again in a moment.',
+                'sources': [],
+                'num_sources': 0,
+                'confidence': 0.0
+            }), 200
         
         # Generate explanation
         result = rag_agent.generate_explanation(query, stock_symbol)
         
-        return jsonify(result)
+        # Ensure all required fields
+        response_data = {
+            'query': result.get('query', query),
+            'stock_symbol': result.get('stock_symbol', stock_symbol),
+            'explanation': result.get('explanation', 'No explanation available'),
+            'sources': result.get('sources', []),
+            'num_sources': result.get('num_sources', 0),
+            'confidence': result.get('confidence', 0.0)
+        }
+        
+        return jsonify(response_data), 200
         
     except Exception as e:
         log.error(f"Error in query_rag: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@api_bp.route('/top-risks', methods=['GET'])
-def get_top_risks():
-    """
-    Get top risky stocks
-    
-    Query params:
-        - limit: Number of stocks to return (default: 10)
-    """
-    try:
-        risk_df = load_risk_scores()
-        
-        if risk_df.empty:
-            return jsonify({'error': 'No risk data available'}), 404
-        
-        # Get top risks
-        limit = request.args.get('limit', default=10, type=int)
-        top_risks = risk_df.head(limit)
-        
-        data = top_risks.to_dict(orient='records')
-        
         return jsonify({
-            'count': len(data),
-            'data': data
-        })
-        
-    except Exception as e:
-        log.error(f"Error in get_top_risks: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@api_bp.route('/market-features/<symbol>', methods=['GET'])
-def get_market_features(symbol):
-    """
-    Get historical market features for a stock
-    
-    Params:
-        symbol: Stock symbol
-    
-    Query params:
-        - days: Number of days to include (default: 90)
-    """
-    try:
-        features_df = load_market_features()
-        
-        if features_df.empty:
-            return jsonify({'error': 'No market data available'}), 404
-        
-        # Filter by symbol
-        stock_features = features_df[features_df['symbol'] == symbol]
-        
-        if stock_features.empty:
-            return jsonify({'error': f'Stock {symbol} not found'}), 404
-        
-        # Filter by date range
-        days = request.args.get('days', default=90, type=int)
-        stock_features = stock_features.sort_values('Date')
-        stock_features = stock_features.tail(days)
-        
-        # Select relevant columns
-        feature_cols = [
-            'Date', 'Close', 'returns', 'volatility_21d', 'volatility_60d',
-            'max_drawdown', 'beta', 'sharpe_ratio', 'atr_pct', 'liquidity_risk'
-        ]
-        available_cols = [col for col in feature_cols if col in stock_features.columns]
-        stock_features = stock_features[available_cols]
-        
-        data = stock_features.to_dict(orient='records')
-        
-        return jsonify({
-            'symbol': symbol,
-            'count': len(data),
-            'data': data
-        })
-        
-    except Exception as e:
-        log.error(f"Error in get_market_features: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@api_bp.route('/stats', methods=['GET'])
-def get_stats():
-    """Get overall system statistics"""
-    try:
-        risk_df = load_risk_scores()
-        alerts_df = load_alerts()
-        sentiment_df = load_sentiment()
-        
-        stats = {
-            'total_stocks': len(risk_df) if not risk_df.empty else 0,
-            'high_risk_stocks': int((risk_df['risk_level'] == 'High').sum()) if not risk_df.empty else 0,
-            'medium_risk_stocks': int((risk_df['risk_level'] == 'Medium').sum()) if not risk_df.empty else 0,
-            'low_risk_stocks': int((risk_df['risk_level'] == 'Low').sum()) if not risk_df.empty else 0,
-            'total_alerts': len(alerts_df) if not alerts_df.empty else 0,
-            'avg_risk_score': float(risk_df['risk_score'].mean()) if not risk_df.empty else 0,
-            'avg_sentiment': float(sentiment_df['avg_sentiment'].mean()) if not sentiment_df.empty else 0,
-            'last_updated': datetime.now().isoformat()
-        }
-        
-        return jsonify(stats)
-        
-    except Exception as e:
-        log.error(f"Error in get_stats: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+            'query': data.get('query', ''),
+            'stock_symbol': data.get('stock_symbol'),
+            'explanation': f"I encountered an error while processing your question. Error: {str(e)}",
+            'sources': [],
+            'num_sources': 0,
+            'confidence': 0.0
+        }), 200
 
 @api_bp.route('/risk-history', methods=['GET'])
 def get_risk_history():
-    """
-    Get risk history for trending
-    
-    Query params:
-        - symbol: Filter by stock symbol
-        - days: Number of days (default: 30)
-    """
+    """Get risk history for trending"""
     try:
-        history_df = load_risk_history()
-        
-        if history_df.empty:
-            return jsonify({'count': 0, 'data': []})
-        
-        # Filter by symbol if specified
         symbol = request.args.get('symbol')
-        if symbol:
-            history_df = history_df[history_df['symbol'] == symbol]
+        days = request.args.get('days', 30, type=int)
         
-        # Filter by days
-        days = request.args.get('days', default=30, type=int)
-        cutoff_date = datetime.now() - timedelta(days=days)
-        history_df = history_df[history_df['timestamp'] >= cutoff_date]
-        
-        # Sort by timestamp
-        history_df = history_df.sort_values('timestamp')
-        
-        data = history_df.to_dict(orient='records')
-        
-        return jsonify({
-            'count': len(data),
-            'data': data
-        })
-        
+        with DatabaseService() as db:
+            risk_history = db.get_risk_history(symbol=symbol, days=days)
+            
+            data = risk_history.to_dict('records')
+            
+            # Convert timestamps
+            for record in data:
+                if isinstance(record.get('timestamp'), datetime):
+                    record['timestamp'] = record['timestamp'].isoformat()
+            
+            return jsonify({
+                'count': len(data),
+                'data': data
+            })
+            
     except Exception as e:
         log.error(f"Error in get_risk_history: {str(e)}")
         return jsonify({'error': str(e)}), 500

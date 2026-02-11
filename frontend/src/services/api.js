@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,7 +37,18 @@ export const apiService = {
   getMarketFeatures: (symbol, params = {}) => api.get(`/market-features/${symbol}`, { params }),
   
   // RAG query
-  queryRAG: (query, stockSymbol = null) => api.post('/query-rag', { query, stock_symbol: stockSymbol }),
+  queryRAG: (query, stockSymbol = null) => {
+    console.log('API: Sending RAG query:', { query, stock_symbol: stockSymbol });
+    return api.post('/query-rag', { query, stock_symbol: stockSymbol })
+      .then(response => {
+        console.log('API: RAG response received:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('API: RAG request failed:', error);
+        throw error;
+      });
+  },
   
   // Risk history
   getRiskHistory: (params = {}) => api.get('/risk-history', { params }),

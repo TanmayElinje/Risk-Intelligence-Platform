@@ -1,0 +1,55 @@
+alert_type,symbol,risk_score,risk_level,risk_rank,risk_drivers,timestamp,severity,explanation
+high_risk,WDAY,0.731480771449443,High,1,High volatility | Significant drawdown | Liquidity concerns,2026-02-08 22:29:39.974338,HIGH,No relevant information found in the news database.
+high_risk,SHOP,0.7014501703054947,High,2,High volatility | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,No relevant information found in the news database.
+high_risk,COIN,0.6822904259792497,High,3,High volatility | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,No relevant information found in the news database.
+high_risk,NOW,0.6515501672503751,High,4,High volatility,2026-02-08 22:29:39.975339,HIGH,No relevant information found in the news database.
+high_risk,AAPL,0.6386075971531475,High,5,Negative news sentiment | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,"Based on the provided news articles, I summarize the key points as follows:
+
+AAPL faces increased competition, which may lead to market share concerns. Additionally, regulatory scrutiny is putting pressure on the stock. Furthermore, weak guidance has caused AAPL's stock to drop, fueled by market concerns.
+
+The risk factors are:
+
+1. Competition: Increased competition from other tech companies may erode AAPL's market share.
+2. Regulatory Scrutiny: Regulatory issues can lead to uncertainty and negatively impact investor confidence.
+3. Weak Guidance: Poor guidance from the company can lead to stock price drops, as investors become cautious.
+
+Opportunities:
+
+1. Market Share: If AAPL can maintain its market share despite increased competition, it may be a positive sign for investors.
+2. Regulatory Clearance: If regulatory issues are resolved in favor of AAPL, it could boost investor confidence and the stock price.
+
+Overall, AAPL's risk profile is high due to these factors. Investors should carefully consider these risks before making investment decisions."
+high_risk,NFLX,0.6301272592129121,High,6,Negative news sentiment | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,"Based on the provided news articles, I summarize the key points as follows:
+
+* NFLX faces increased competition, which raises concerns about market share (Source: Synthetic, January 15).
+* The company's stock surges due to positive market sentiment and strong guidance (Source: Synthetic, January 24).
+* NFLX announces layoffs amid cost-cutting measures, indicating potential financial strain (Source: Synthetic, February 4).
+* The company forms strategic partnerships with major tech companies, which could bring opportunities for growth and diversification (Sources: Synthetic, January 17 and 29).
+
+Risk factors:
+
+1. Increased competition may erode NFLX's market share.
+2. Layoffs and cost-cutting measures suggest potential financial strain or restructuring challenges.
+
+Opportunities:
+
+1. Strategic partnerships with major tech companies could drive growth and diversification.
+2. Strong guidance and positive market sentiment may support stock performance.
+
+Overall, while NFLX faces some risks, the company's strategic partnerships and strong guidance provide opportunities for growth and stability."
+high_risk,PANW,0.6276486516115357,High,7,High volatility,2026-02-08 22:29:39.975339,HIGH,No relevant information found in the news database.
+high_risk,ZM,0.6238878154759163,High,8,Significant drawdown | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,No relevant information found in the news database.
+high_risk,NVDA,0.6135141682424847,High,9,Negative news sentiment | Liquidity concerns,2026-02-08 22:29:39.975339,HIGH,"Based on the provided news articles, NVDA's stock is facing pressure due to regulatory scrutiny and weak guidance. The company's recent announcement of a strategic partnership with a major tech company may have initially boosted sentiment, but this was short-lived as subsequent reports of regulatory issues and weak guidance led to a decline in the stock.
+
+Risk factors:
+
+* Regulatory scrutiny: NVDA faces potential regulatory challenges, which could impact its business operations and financial performance.
+* Weak guidance: The company's recent guidance has been weak, leading to concerns about its ability to meet expectations.
+
+Opportunities:
+
+* Strategic partnership: The partnership with a major tech company may bring new opportunities for growth and expansion.
+
+Overall, NVDA's stock is considered high-risk due to the regulatory issues and weak guidance. While the strategic partnership presents an opportunity, it is not enough to offset the concerns surrounding the company's financial performance."
+high_risk,INTU,0.6053672533792285,High,10,Liquidity concerns,2026-02-08 22:29:39.976288,HIGH,No relevant information found in the news database.
+high_risk,KLAC,0.6046528658479756,High,11,Significant drawdown | Liquidity concerns,2026-02-08 22:29:39.976288,HIGH,No relevant information found in the news database.

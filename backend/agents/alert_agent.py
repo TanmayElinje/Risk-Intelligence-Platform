@@ -1,403 +1,230 @@
 """
-Alert Agent - Generates automated risk alerts with explanations
+Alert Agent - Monitor risk scores and generate alerts
+Now using PostgreSQL for data persistence
 """
-import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional
-from datetime import datetime
-from backend.utils import log, load_config, load_dataframe, save_dataframe, ensure_dir
+from typing import List, Dict
+from datetime import datetime, timedelta
+from backend.utils import log, load_config
+from backend.database import DatabaseService
 from backend.agents.rag_agent import NewsRAGAgent
 
 class AlertAgent:
     """
-    Agent responsible for generating risk alerts
+    Agent responsible for monitoring risk scores and generating alerts
     """
     
     def __init__(self):
-        """Initialize Alert Agent"""
         self.config = load_config()
-        self.agent_config = self.config['agents']['alert']
-        self.triggers = self.agent_config['triggers']
-        self.notification_config = self.agent_config['notification']
-        
-        # Initialize RAG agent for explanations
+        self.alert_thresholds = {
+            'high_risk': 0.6,
+            'spike_threshold': 0.2,  # 20% increase
+            'spike_absolute': 0.15   # Absolute increase
+        }
         self.rag_agent = None
-        
-        log.info("Alert Agent initialized")
-        log.info(f"Alert triggers: {self.triggers}")
     
-    def load_risk_scores(self) -> pd.DataFrame:
-        """
-        Load latest risk scores
-        
-        Returns:
-            DataFrame with risk scores
-        """
-        log.info("Loading risk scores...")
-        
-        risk_path = f"{self.config['paths']['data_processed']}/risk_scores.csv"
-        
-        try:
-            risk_df = load_dataframe(risk_path, format='csv')
-            log.info(f"Loaded {len(risk_df)} risk scores")
-            return risk_df
-        except FileNotFoundError:
-            log.error("Risk scores not found")
-            raise
-    
-    def load_historical_risk(self) -> Optional[pd.DataFrame]:
-        """
-        Load historical risk scores for comparison
-        
-        Returns:
-            DataFrame with historical risk or None
-        """
-        history_path = f"{self.config['paths']['data_processed']}/risk_history.csv"
-        
-        try:
-            history_df = load_dataframe(history_path, format='csv')
-            log.info(f"Loaded historical risk data: {len(history_df)} records")
-            return history_df
-        except FileNotFoundError:
-            log.info("No historical risk data found (first run)")
-            return None
-    
-    def init_rag_agent(self):
-        """Initialize RAG agent for explanations"""
+    def load_rag_agent(self):
+        """Load RAG agent for explanations (lazy loading)"""
         if self.rag_agent is None:
-            log.info("Initializing RAG agent for explanations...")
             try:
+                log.info("Loading RAG agent for alert explanations...")
                 self.rag_agent = NewsRAGAgent()
-                # Try to load existing vector store
                 self.rag_agent.vector_store = self.rag_agent.load_vector_store()
-                
-                if self.rag_agent.vector_store is None:
-                    log.warning("RAG vector store not available, alerts will have limited explanations")
+                if self.rag_agent.vector_store:
+                    log.info("✓ RAG agent loaded successfully")
+                else:
+                    log.warning("RAG vector store not found, alerts will have basic explanations")
             except Exception as e:
-                log.warning(f"Failed to initialize RAG agent: {str(e)}")
+                log.error(f"Failed to load RAG agent: {str(e)}")
                 self.rag_agent = None
     
-    def detect_high_risk_stocks(self, risk_df: pd.DataFrame) -> List[Dict]:
-        """
-        Detect stocks with high risk levels
-        
-        Args:
-            risk_df: DataFrame with risk scores
-            
-        Returns:
-            List of alert dictionaries
-        """
-        log.info("Detecting high-risk stocks...")
-        
-        high_risk = risk_df[risk_df['risk_level'] == 'High'].copy()
-        
+    def detect_high_risk_stocks(self, risk_scores_df) -> List[Dict]:
+        """Detect stocks with high risk levels"""
         alerts = []
-        for _, row in high_risk.iterrows():
+        
+        high_risk_stocks = risk_scores_df[
+            risk_scores_df['risk_level'] == 'High'
+        ]
+        
+        for _, stock in high_risk_stocks.iterrows():
             alert = {
+                'symbol': stock['symbol'],
                 'alert_type': 'high_risk',
-                'symbol': row['symbol'],
-                'risk_score': row['risk_score'],
-                'risk_level': row['risk_level'],
-                'risk_rank': row['risk_rank'],
-                'risk_drivers': row['risk_drivers'],
-                'timestamp': datetime.now(),
-                'severity': 'HIGH'
+                'severity': 'HIGH',
+                'risk_score': stock['risk_score'],
+                'prev_risk_score': None,
+                'risk_change': None,
+                'risk_change_pct': None,
+                'risk_level': stock['risk_level'],
+                'risk_drivers': stock['risk_drivers'],
+                'explanation': None,
+                'timestamp': datetime.utcnow()
             }
             alerts.append(alert)
         
-        log.info(f"✓ Detected {len(alerts)} high-risk stocks")
         return alerts
     
-    def detect_sudden_spikes(
-        self,
-        current_risk: pd.DataFrame,
-        historical_risk: Optional[pd.DataFrame]
-    ) -> List[Dict]:
-        """
-        Detect sudden risk increases
-        
-        Args:
-            current_risk: Current risk scores
-            historical_risk: Historical risk scores
-            
-        Returns:
-            List of alert dictionaries
-        """
-        if historical_risk is None or historical_risk.empty:
-            log.info("No historical data for spike detection")
-            return []
-        
-        log.info("Detecting sudden risk spikes...")
-        
-        # Get previous risk scores
-        historical_risk = historical_risk.sort_values('timestamp')
-        prev_risk = historical_risk.groupby('symbol').tail(1)[['symbol', 'risk_score']].copy()
-        prev_risk = prev_risk.rename(columns={'risk_score': 'prev_risk_score'})
-        
-        # Merge with current
-        comparison = current_risk.merge(prev_risk, on='symbol', how='left')
-        comparison['prev_risk_score'] = comparison['prev_risk_score'].fillna(0.5)
-        
-        # Calculate change
-        comparison['risk_change'] = comparison['risk_score'] - comparison['prev_risk_score']
-        comparison['risk_change_pct'] = (comparison['risk_change'] / (comparison['prev_risk_score'] + 0.001)) * 100
-        
-        # Detect spikes (>20% increase or >0.15 absolute increase)
-        spike_threshold_pct = 20
-        spike_threshold_abs = 0.15
-        
-        spikes = comparison[
-            (comparison['risk_change_pct'] > spike_threshold_pct) |
-            (comparison['risk_change'] > spike_threshold_abs)
-        ].copy()
-        
+    def detect_sudden_spikes(self, current_scores_df, historical_scores_df) -> List[Dict]:
+        """Detect sudden spikes in risk scores"""
         alerts = []
-        for _, row in spikes.iterrows():
-            alert = {
-                'alert_type': 'sudden_spike',
-                'symbol': row['symbol'],
-                'risk_score': row['risk_score'],
-                'prev_risk_score': row['prev_risk_score'],
-                'risk_change': row['risk_change'],
-                'risk_change_pct': row['risk_change_pct'],
-                'risk_level': row['risk_level'],
-                'risk_drivers': row['risk_drivers'],
-                'timestamp': datetime.now(),
-                'severity': 'MEDIUM' if row['risk_change_pct'] < 50 else 'HIGH'
-            }
-            alerts.append(alert)
         
-        log.info(f"✓ Detected {len(alerts)} sudden risk spikes")
+        if historical_scores_df.empty:
+            log.warning("No historical data available for spike detection")
+            return alerts
+        
+        # Get average historical risk for each stock
+        historical_avg = historical_scores_df.groupby('symbol')['risk_score'].mean().to_dict()
+        
+        for _, stock in current_scores_df.iterrows():
+            symbol = stock['symbol']
+            current_risk = stock['risk_score']
+            
+            if symbol not in historical_avg:
+                continue
+            
+            prev_risk = historical_avg[symbol]
+            risk_change = current_risk - prev_risk
+            risk_change_pct = (risk_change / prev_risk * 100) if prev_risk > 0 else 0
+            
+            # Check if spike exceeds threshold
+            if risk_change > self.alert_thresholds['spike_absolute'] or \
+               risk_change_pct > self.alert_thresholds['spike_threshold'] * 100:
+                
+                alert = {
+                    'symbol': symbol,
+                    'alert_type': 'sudden_spike',
+                    'severity': 'MEDIUM',
+                    'risk_score': current_risk,
+                    'prev_risk_score': prev_risk,
+                    'risk_change': risk_change,
+                    'risk_change_pct': risk_change_pct,
+                    'risk_level': stock['risk_level'],
+                    'risk_drivers': stock['risk_drivers'],
+                    'explanation': None,
+                    'timestamp': datetime.utcnow()
+                }
+                alerts.append(alert)
+        
         return alerts
     
-    def generate_explanation(self, alert: Dict) -> str:
-        """
-        Generate explanation for an alert using RAG
+    def generate_explanations(self, alerts: List[Dict]) -> List[Dict]:
+        """Generate RAG-based explanations for alerts"""
+        if not self.rag_agent or not self.rag_agent.vector_store:
+            log.warning("RAG agent not available, using basic explanations")
+            for alert in alerts:
+                alert['explanation'] = f"Alert for {alert['symbol']}: {alert['risk_drivers']}"
+            return alerts
         
-        Args:
-            alert: Alert dictionary
-            
-        Returns:
-            Explanation text
-        """
-        symbol = alert['symbol']
-        alert_type = alert['alert_type']
+        log.info(f"Generating explanations for {len(alerts)} alerts...")
         
-        # Initialize RAG if needed
-        if self.rag_agent is None:
-            self.init_rag_agent()
-        
-        # Generate query based on alert type
-        if alert_type == 'high_risk':
-            query = f"Why is {symbol} risk high? What are the concerns?"
-        elif alert_type == 'sudden_spike':
-            query = f"What recent developments caused {symbol} risk to increase?"
-        else:
-            query = f"What is the latest news about {symbol}?"
-        
-        # Get explanation from RAG
-        if self.rag_agent and self.rag_agent.vector_store:
+        for alert in alerts:
             try:
-                result = self.rag_agent.generate_explanation(query, symbol)
-                return result['explanation']
+                query = f"Why is {alert['symbol']} showing {alert['alert_type']}? Risk drivers: {alert['risk_drivers']}"
+                
+                result = self.rag_agent.generate_explanation(
+                    query=query,
+                    stock_symbol=alert['symbol']
+                )
+                
+                alert['explanation'] = result.get('explanation', alert['risk_drivers'])
+                
             except Exception as e:
-                log.warning(f"Failed to generate RAG explanation: {str(e)}")
+                log.error(f"Failed to generate explanation for {alert['symbol']}: {str(e)}")
+                alert['explanation'] = alert['risk_drivers']
         
-        # Fallback to basic explanation
-        return self._generate_basic_explanation(alert)
+        return alerts
     
-    def _generate_basic_explanation(self, alert: Dict) -> str:
-        """
-        Generate basic explanation without RAG
-        
-        Args:
-            alert: Alert dictionary
-            
-        Returns:
-            Basic explanation
-        """
-        symbol = alert['symbol']
-        risk_score = alert['risk_score']
-        drivers = alert.get('risk_drivers', 'Unknown drivers')
-        
-        explanation = f"Risk alert for {symbol}:\n"
-        explanation += f"Risk Score: {risk_score:.3f}\n"
-        explanation += f"Risk Drivers: {drivers}\n"
-        
-        if alert['alert_type'] == 'sudden_spike':
-            change = alert.get('risk_change', 0)
-            change_pct = alert.get('risk_change_pct', 0)
-            explanation += f"Risk increased by {change:.3f} ({change_pct:.1f}%)\n"
-        
-        return explanation
-    
-    def format_alert_message(self, alert: Dict, explanation: str) -> str:
-        """
-        Format alert into readable message
-        
-        Args:
-            alert: Alert dictionary
-            explanation: Explanation text
-            
-        Returns:
-            Formatted alert message
-        """
-        symbol = alert['symbol']
-        severity = alert['severity']
-        alert_type = alert['alert_type'].replace('_', ' ').title()
-        
-        # Create header
-        header = f"\n{'='*70}\n"
-        header += f"🚨 {severity} ALERT: {alert_type} - {symbol}\n"
-        header += f"{'='*70}\n"
-        
-        # Create details
-        details = f"Timestamp: {alert['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-        details += f"Risk Score: {alert['risk_score']:.3f} ({alert['risk_level']})\n"
-        
-        if alert['alert_type'] == 'sudden_spike':
-            details += f"Previous Score: {alert.get('prev_risk_score', 0):.3f}\n"
-            details += f"Change: +{alert.get('risk_change', 0):.3f} ({alert.get('risk_change_pct', 0):.1f}%)\n"
-        
-        details += f"Risk Rank: #{alert['risk_rank']}\n"
-        details += f"\nRisk Drivers:\n{alert['risk_drivers']}\n"
-        
-        # Add explanation
-        details += f"\nExplanation:\n{explanation}\n"
-        
-        footer = f"{'='*70}\n"
-        
-        return header + details + footer
-    
-    def send_notifications(self, alert_message: str):
-        """
-        Send alert notifications
-        
-        Args:
-            alert_message: Formatted alert message
-        """
-        # Console notification
-        if self.notification_config.get('console', True):
-            print(alert_message)
-        
-        # Email notification (placeholder)
-        if self.notification_config.get('email', False):
-            log.info("Email notifications not configured")
-            # TODO: Implement email sending
-    
-    def save_alerts(self, alerts: List[Dict], filename: str = "alerts.csv"):
-        """
-        Save alerts to file
-        
-        Args:
-            alerts: List of alert dictionaries
-            filename: Output filename
-        """
+    def send_notifications(self, alerts: List[Dict]):
+        """Send alert notifications (console for now)"""
         if not alerts:
-            log.info("No alerts to save")
+            log.info("No alerts to send")
             return
         
-        ensure_dir(self.config['paths']['data_processed'])
-        filepath = f"{self.config['paths']['data_processed']}/{filename}"
+        log.info("=" * 60)
+        log.info(f"SENDING {len(alerts)} ALERT NOTIFICATIONS")
+        log.info("=" * 60)
         
-        # Convert to DataFrame
-        alerts_df = pd.DataFrame(alerts)
-        
-        # Load existing alerts and append
-        try:
-            existing_alerts = load_dataframe(filepath, format='csv')
-            alerts_df = pd.concat([existing_alerts, alerts_df], ignore_index=True)
-        except FileNotFoundError:
-            pass
-        
-        save_dataframe(alerts_df, filepath, format='csv')
-        log.info(f"✓ Saved {len(alerts)} alerts to {filepath}")
+        for alert in alerts:
+            severity_icon = "🚨" if alert['severity'] == 'HIGH' else "⚠️"
+            
+            log.info(f"{severity_icon} {alert['alert_type'].upper()}: {alert['symbol']}")
+            log.info(f"   Risk Score: {alert['risk_score']:.3f} ({alert['risk_level']})")
+            
+            if alert['risk_change']:
+                log.info(f"   Change: +{alert['risk_change']:.3f} ({alert['risk_change_pct']:.1f}%)")
+            
+            log.info(f"   Drivers: {alert['risk_drivers']}")
+            
+            if alert['explanation']:
+                log.info(f"   Explanation: {alert['explanation'][:100]}...")
+            
+            log.info("-" * 60)
     
-    def update_risk_history(self, risk_df: pd.DataFrame):
+    def process(self):
         """
-        Update risk history for trend analysis
-        
-        Args:
-            risk_df: Current risk scores
+        Main processing method - Detect alerts and save to DB
         """
-        history_path = f"{self.config['paths']['data_processed']}/risk_history.csv"
+        log.info("=" * 60)
+        log.info("ALERT AGENT - Monitoring Risk Alerts")
+        log.info("=" * 60)
         
-        # Add timestamp
-        risk_history = risk_df.copy()
-        risk_history['timestamp'] = datetime.now()
-        
-        # Select relevant columns
-        history_cols = ['symbol', 'risk_score', 'risk_level', 'timestamp']
-        risk_history = risk_history[history_cols]
-        
-        # Load and append
-        try:
-            existing_history = load_dataframe(history_path, format='csv')
-            risk_history = pd.concat([existing_history, risk_history], ignore_index=True)
+        with DatabaseService() as db:
+            # Load current risk scores
+            log.info("Loading current risk scores...")
+            current_scores = db.get_latest_risk_scores()
             
-            # Keep only last 30 days
-            risk_history['timestamp'] = pd.to_datetime(risk_history['timestamp'])
-            cutoff_date = datetime.now() - pd.Timedelta(days=30)
-            risk_history = risk_history[risk_history['timestamp'] > cutoff_date]
+            if current_scores.empty:
+                log.error("No risk scores found! Run risk agent first.")
+                return None
             
-        except FileNotFoundError:
-            pass
-        
-        save_dataframe(risk_history, history_path, format='csv')
-        log.info(f"✓ Updated risk history: {len(risk_history)} records")
+            log.info(f"Loaded {len(current_scores)} current risk scores")
+            
+            # Load historical risk scores
+            log.info("Loading historical risk scores...")
+            historical_scores = db.get_risk_history(days=30)
+            
+            # Detect high risk stocks
+            log.info("Detecting high risk stocks...")
+            high_risk_alerts = self.detect_high_risk_stocks(current_scores)
+            log.info(f"Found {len(high_risk_alerts)} high risk alerts")
+            
+            # Detect sudden spikes
+            log.info("Detecting sudden risk spikes...")
+            spike_alerts = self.detect_sudden_spikes(current_scores, historical_scores)
+            log.info(f"Found {len(spike_alerts)} spike alerts")
+            
+            # Combine all alerts
+            all_alerts = high_risk_alerts + spike_alerts
+            
+            if not all_alerts:
+                log.info("No alerts generated")
+                return []
+            
+            # Load RAG agent for explanations
+            self.load_rag_agent()
+            
+            # Generate explanations
+            all_alerts = self.generate_explanations(all_alerts)
+            
+            # Send notifications
+            self.send_notifications(all_alerts)
+            
+            # Save alerts to database
+            log.info("Saving alerts to database...")
+            db.save_alerts(all_alerts)
+            
+            log.info("=" * 60)
+            log.info(f"✓ ALERT AGENT COMPLETED - Generated {len(all_alerts)} alerts")
+            log.info("=" * 60)
+            
+            return all_alerts
+
+def main():
+    """Main execution"""
+    agent = AlertAgent()
+    alerts = agent.process()
     
-    def run(self) -> List[Dict]:
-        """
-        Run the complete alert generation pipeline
-        
-        Returns:
-            List of generated alerts
-        """
-        log.info("=" * 60)
-        log.info("STARTING ALERT AGENT")
-        log.info("=" * 60)
-        
-        # Load data
-        risk_df = self.load_risk_scores()
-        historical_risk = self.load_historical_risk()
-        
-        all_alerts = []
-        
-        # Detect high-risk stocks
-        if 'high_risk' in self.triggers:
-            high_risk_alerts = self.detect_high_risk_stocks(risk_df)
-            all_alerts.extend(high_risk_alerts)
-        
-        # Detect sudden spikes
-        if 'sudden_spike' in self.triggers:
-            spike_alerts = self.detect_sudden_spikes(risk_df, historical_risk)
-            all_alerts.extend(spike_alerts)
-        
-        log.info(f"Total alerts generated: {len(all_alerts)}")
-        
-        # Generate explanations and send notifications
-        if all_alerts:
-            log.info("Generating explanations and sending notifications...")
-            
-            for alert in all_alerts:
-                # Generate explanation
-                explanation = self.generate_explanation(alert)
-                alert['explanation'] = explanation
-                
-                # Format and send
-                alert_message = self.format_alert_message(alert, explanation)
-                self.send_notifications(alert_message)
-        else:
-            log.info("✓ No alerts triggered - all stocks within acceptable risk levels")
-        
-        # Save alerts
-        self.save_alerts(all_alerts)
-        
-        # Update risk history
-        self.update_risk_history(risk_df)
-        
-        log.info("=" * 60)
-        log.info("✓ ALERT AGENT COMPLETED")
-        log.info("=" * 60)
-        
-        return all_alerts
+    if alerts is not None:
+        log.info(f"Total alerts generated: {len(alerts)}")
+
+if __name__ == "__main__":
+    main()

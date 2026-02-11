@@ -1,66 +1,42 @@
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
 venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 *.egg
+*.egg-info/
+dist/
+build/
 
-# Environment
-.env
-.venv
-
-# Logs
-logs/
-*.log
-
-# Data
-backend/data/raw/*
-backend/data/processed/*
-backend/data/features/*
-backend/data/vector_db/*
-!backend/data/.gitkeep
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Jupyter
-.ipynb_checkpoints/
+# Database
+*.db
+*.sqlite
 
-# React
-frontend/node_modules/
-frontend/build/
-frontend/.env
+# Environment
+.env
+.env.local
 
-# Models
-*.pth
-*.bin
-*.onnx
-models/
+# Logs
+*.log
 
-# Pytest
-.pytest_cache/
-.coverage
-htmlcov/
+# Data folders
+backend/data/vector_db/

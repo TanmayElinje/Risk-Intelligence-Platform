@@ -1,6 +1,4 @@
 """
-Flask API module
+API Package
 """
-from backend.api.app import create_app, run_server
-
-__all__ = ['create_app', 'run_server']
+# Don't import anything here to avoid circular imports

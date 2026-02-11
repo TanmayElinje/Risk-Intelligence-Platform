@@ -39,3 +39,49 @@
     @apply bg-green-100 text-green-800;
   }
 }
+
+/* WebSocket animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Risk score update flash */
+@keyframes flash-update {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+}
+
+.flash-update {
+  animation: flash-update 1s ease-in-out;
+}
+
+/* WebSocket animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}

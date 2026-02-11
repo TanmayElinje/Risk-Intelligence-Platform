@@ -1,10 +1,11 @@
 """
-Market Data Agent - Computes quantitative risk features
+Market Data Agent - Compute quantitative risk features from market data
+Now using PostgreSQL for data persistence
 """
 import pandas as pd
 import numpy as np
-from typing import Dict, Optional
-from backend.utils import log, load_config, load_dataframe, save_dataframe, ensure_dir
+from backend.utils import log, load_config
+from backend.database import DatabaseService
 
 class MarketDataAgent:
     """
@@ -12,365 +13,259 @@ class MarketDataAgent:
     """
     
     def __init__(self):
-        """Initialize Market Data Agent"""
         self.config = load_config()
-        self.agent_config = self.config['agents']['market_data']
-        self.features_config = self.agent_config['features']
-        log.info("Market Data Agent initialized")
-    
-    def load_data(self) -> tuple:
-        """
-        Load market data and benchmark data
-        
-        Returns:
-            Tuple of (stocks_df, benchmark_df)
-        """
-        log.info("Loading market data...")
-        
-        stocks_path = f"{self.config['paths']['data_raw']}/stocks_data.parquet"
-        benchmark_path = f"{self.config['paths']['data_raw']}/benchmark_data.parquet"
-        
-        stocks_df = load_dataframe(stocks_path, format='parquet')
-        benchmark_df = load_dataframe(benchmark_path, format='parquet')
-        
-        log.info(f"Loaded {len(stocks_df)} rows of stock data")
-        log.info(f"Loaded {len(benchmark_df)} rows of benchmark data")
-        
-        return stocks_df, benchmark_df
+        #self.features_config = self.config['features']
     
     def compute_returns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Compute daily returns
-        
-        Args:
-            df: DataFrame with OHLCV data
-            
-        Returns:
-            DataFrame with returns column
-        """
+        """Compute daily returns"""
         df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
-        
-        # Compute daily returns per symbol
         df['returns'] = df.groupby('symbol')['Close'].pct_change()
-        
-        # Handle inf and nan
-        df['returns'] = df['returns'].replace([np.inf, -np.inf], np.nan)
-        df['returns'] = df['returns'].fillna(0)
-        
-        log.info("✓ Computed daily returns")
         return df
     
-    def compute_volatility(self, df: pd.DataFrame, windows: list = [21, 60]) -> pd.DataFrame:
-        """
-        Compute rolling volatility
-        
-        Args:
-            df: DataFrame with returns
-            windows: List of rolling window sizes
-            
-        Returns:
-            DataFrame with volatility columns
-        """
+    def compute_volatility(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Compute rolling volatility (annualized)"""
         df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
         
-        for window in windows:
-            col_name = f'volatility_{window}d'
-            
-            # Rolling standard deviation of returns (annualized)
-            df[col_name] = df.groupby('symbol')['returns'].transform(
-                lambda x: x.rolling(window=window, min_periods=max(1, window//2)).std() * np.sqrt(252)
-            )
-            
-            # Fill initial NaN values with overall volatility
-            df[col_name] = df.groupby('symbol')[col_name].transform(
-                lambda x: x.fillna(x.mean())
-            )
+        # 21-day volatility (approximately 1 month)
+        df['volatility_21d'] = df.groupby('symbol')['returns'].transform(
+            lambda x: x.rolling(window=21, min_periods=10).std() * np.sqrt(252)
+        )
         
-        log.info(f"✓ Computed volatility for windows: {windows}")
+        # 60-day volatility (approximately 3 months)
+        df['volatility_60d'] = df.groupby('symbol')['returns'].transform(
+            lambda x: x.rolling(window=60, min_periods=30).std() * np.sqrt(252)
+        )
+        
         return df
     
     def compute_max_drawdown(self, df: pd.DataFrame, window: int = 252) -> pd.DataFrame:
-        """
-        Compute maximum drawdown over rolling window
-        
-        Args:
-            df: DataFrame with Close prices
-            window: Rolling window size
-            
-        Returns:
-            DataFrame with max_drawdown column
-        """
+        """Compute maximum drawdown over rolling window"""
         df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
         
-        def rolling_max_drawdown(prices):
-            """Calculate rolling max drawdown"""
-            rolling_max = prices.rolling(window=window, min_periods=1).max()
-            drawdown = (prices - rolling_max) / rolling_max
-            return drawdown.rolling(window=window, min_periods=1).min()
+        def max_dd(prices):
+            """Calculate max drawdown for a price series"""
+            if len(prices) < 2:
+                return 0
+            cummax = prices.expanding(min_periods=1).max()
+            drawdown = (prices - cummax) / cummax
+            return drawdown.min() * 100  # As percentage
         
-        df['max_drawdown'] = df.groupby('symbol')['Close'].transform(rolling_max_drawdown)
+        df['max_drawdown'] = df.groupby('symbol')['Close'].transform(
+            lambda x: x.rolling(window=window, min_periods=20).apply(max_dd, raw=False)
+        )
         
-        # Convert to positive percentage
-        df['max_drawdown'] = abs(df['max_drawdown']) * 100
-        
-        log.info("✓ Computed maximum drawdown")
         return df
     
-    def compute_beta(self, stocks_df: pd.DataFrame, benchmark_df: pd.DataFrame, window: int = 60) -> pd.DataFrame:
-        """
-        Compute beta (correlation with market)
+    def compute_beta(self, df: pd.DataFrame, benchmark_df: pd.DataFrame) -> pd.DataFrame:
+        """Compute beta relative to benchmark (simplified)"""
+        df = df.copy()
         
-        Args:
-            stocks_df: Stock data with returns
-            benchmark_df: Benchmark data with returns
-            window: Rolling window for beta calculation
-            
-        Returns:
-            DataFrame with beta column
-        """
-        stocks_df = stocks_df.copy()
-        
-        # Compute benchmark returns if not present
-        if 'returns' not in benchmark_df.columns:
-            benchmark_df = benchmark_df.sort_values('Date')
-            benchmark_df['returns'] = benchmark_df['Close'].pct_change()
-            benchmark_df['returns'] = benchmark_df['returns'].replace([np.inf, -np.inf], np.nan).fillna(0)
-        
-        # Merge stock and benchmark returns on date
-        merged = stocks_df.merge(
-            benchmark_df[['Date', 'returns']].rename(columns={'returns': 'market_returns'}),
-            on='Date',
+        # Merge with benchmark
+        benchmark_df = benchmark_df.rename(columns={'Close': 'Benchmark_Close'})
+        df = df.merge(
+            benchmark_df[['Date', 'Benchmark_Close']], 
+            on='Date', 
             how='left'
         )
         
-        def rolling_beta(group):
-            """Calculate rolling beta for a stock"""
+        # Compute benchmark returns
+        df['benchmark_returns'] = df['Benchmark_Close'].pct_change()
+        
+        # Compute rolling beta using simpler approach
+        def calculate_beta(stock_df):
+            """Calculate beta for a stock"""
+            # Get valid data
+            valid_data = stock_df[['returns', 'benchmark_returns']].dropna()
+            
+            if len(valid_data) < 20:
+                return pd.Series([1.0] * len(stock_df), index=stock_df.index)
+            
+            # Calculate rolling beta
             betas = []
-            for i in range(len(group)):
-                start_idx = max(0, i - window + 1)
-                window_data = group.iloc[start_idx:i+1]
-                
-                if len(window_data) < max(1, window//2):
-                    betas.append(1.0)  # Default beta
+            for i in range(len(stock_df)):
+                if i < 60:
+                    betas.append(1.0)  # Default beta for early data
                 else:
-                    stock_ret = window_data['returns'].values
-                    market_ret = window_data['market_returns'].values
+                    # Get last 60 days of data
+                    window_start = max(0, i - 60)
+                    window_data = stock_df.iloc[window_start:i][['returns', 'benchmark_returns']].dropna()
                     
-                    # Covariance / Variance
-                    covariance = np.cov(stock_ret, market_ret)[0, 1]
-                    market_variance = np.var(market_ret)
-                    
-                    if market_variance > 0:
-                        beta = covariance / market_variance
+                    if len(window_data) >= 20:
+                        # Calculate covariance and variance
+                        cov_matrix = window_data.cov()
+                        if 'benchmark_returns' in cov_matrix.columns and len(cov_matrix) > 1:
+                            covariance = cov_matrix.loc['returns', 'benchmark_returns']
+                            variance = window_data['benchmark_returns'].var()
+                            
+                            if variance > 0:
+                                beta = covariance / variance
+                                betas.append(beta)
+                            else:
+                                betas.append(1.0)
+                        else:
+                            betas.append(1.0)
                     else:
-                        beta = 1.0
-                    
-                    betas.append(beta)
+                        betas.append(1.0)
             
-            return betas
+            return pd.Series(betas, index=stock_df.index)
         
-        merged = merged.sort_values(['symbol', 'Date'])
-        merged['beta'] = merged.groupby('symbol').apply(
-            lambda x: pd.Series(rolling_beta(x), index=x.index)
-        ).reset_index(level=0, drop=True)
+        # Apply to each stock
+        df['beta'] = df.groupby('symbol', group_keys=False).apply(calculate_beta)
         
-        # Drop market_returns column
-        stocks_df['beta'] = merged['beta']
-        
-        log.info("✓ Computed beta vs benchmark")
-        return stocks_df
+        return df
     
-    def compute_sharpe_ratio(self, df: pd.DataFrame, window: int = 60, risk_free_rate: float = 0.02) -> pd.DataFrame:
-        """
-        Compute Sharpe ratio (risk-adjusted returns)
-        
-        Args:
-            df: DataFrame with returns
-            window: Rolling window size
-            risk_free_rate: Annual risk-free rate
-            
-        Returns:
-            DataFrame with sharpe_ratio column
-        """
+    def compute_sharpe_ratio(self, df: pd.DataFrame, risk_free_rate: float = 0.02) -> pd.DataFrame:
+        """Compute rolling Sharpe ratio"""
         df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
         
-        # Daily risk-free rate
-        daily_rf = risk_free_rate / 252
+        # Rolling mean and std of returns (60-day window)
+        rolling_mean = df.groupby('symbol')['returns'].transform(
+            lambda x: x.rolling(window=60, min_periods=20).mean()
+        )
+        rolling_std = df.groupby('symbol')['returns'].transform(
+            lambda x: x.rolling(window=60, min_periods=20).std()
+        )
         
-        def rolling_sharpe(returns):
-            """Calculate rolling Sharpe ratio"""
-            mean_return = returns.rolling(window=window, min_periods=max(1, window//2)).mean()
-            std_return = returns.rolling(window=window, min_periods=max(1, window//2)).std()
-            
-            sharpe = (mean_return - daily_rf) / std_return
-            
-            # Annualize
-            sharpe = sharpe * np.sqrt(252)
-            
-            return sharpe
+        # Annualize
+        annualized_return = rolling_mean * 252
+        annualized_std = rolling_std * np.sqrt(252)
         
-        df['sharpe_ratio'] = df.groupby('symbol')['returns'].transform(rolling_sharpe)
+        # Sharpe ratio
+        df['sharpe_ratio'] = (annualized_return - risk_free_rate) / annualized_std
         
-        # Fill NaN with 0
-        df['sharpe_ratio'] = df['sharpe_ratio'].fillna(0)
-        
-        # Cap extreme values
-        df['sharpe_ratio'] = df['sharpe_ratio'].clip(-5, 5)
-        
-        log.info("✓ Computed Sharpe ratio")
         return df
     
     def compute_atr(self, df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
-        """
-        Compute Average True Range (ATR)
-        
-        Args:
-            df: DataFrame with OHLC data
-            window: Rolling window size
-            
-        Returns:
-            DataFrame with atr column
-        """
+        """Compute Average True Range (volatility measure)"""
         df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
         
-        # True Range components
-        df['h_l'] = df['High'] - df['Low']
-        df['h_pc'] = abs(df['High'] - df.groupby('symbol')['Close'].shift(1))
-        df['l_pc'] = abs(df['Low'] - df.groupby('symbol')['Close'].shift(1))
+        # True Range
+        df['high_low'] = df['High'] - df['Low']
+        df['high_close'] = abs(df['High'] - df.groupby('symbol')['Close'].shift(1))
+        df['low_close'] = abs(df['Low'] - df.groupby('symbol')['Close'].shift(1))
         
-        # True Range is the maximum of the three
-        df['true_range'] = df[['h_l', 'h_pc', 'l_pc']].max(axis=1)
+        df['true_range'] = df[['high_low', 'high_close', 'low_close']].max(axis=1)
         
-        # ATR is the rolling average of True Range
+        # Average True Range
         df['atr'] = df.groupby('symbol')['true_range'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).mean()
+            lambda x: x.rolling(window=window, min_periods=5).mean()
         )
         
-        # Normalize ATR by price (as percentage)
+        # ATR as percentage of price
         df['atr_pct'] = (df['atr'] / df['Close']) * 100
         
-        # Drop intermediate columns
-        df = df.drop(columns=['h_l', 'h_pc', 'l_pc', 'true_range'])
+        # Clean up
+        df = df.drop(columns=['high_low', 'high_close', 'low_close', 'true_range', 'atr'])
         
-        log.info("✓ Computed ATR")
         return df
     
-    def compute_liquidity(self, df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
+    def compute_liquidity_metrics(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Compute liquidity-based risk metrics"""
+        df = df.copy()
+        
+        # Average volume (20-day)
+        df['avg_volume_20d'] = df.groupby('symbol')['Volume'].transform(
+            lambda x: x.rolling(window=20, min_periods=10).mean()
+        )
+        
+        # Volume volatility (indicator of liquidity risk)
+        df['volume_volatility'] = df.groupby('symbol')['Volume'].transform(
+            lambda x: x.rolling(window=20, min_periods=10).std()
+        )
+        
+        # Liquidity risk score (normalized)
+        df['liquidity_risk'] = df['volume_volatility'] / (df['avg_volume_20d'] + 1e-9)
+        
+        return df
+    
+    def compute_all_features(self, market_data: pd.DataFrame, benchmark_data: pd.DataFrame) -> pd.DataFrame:
         """
-        Compute liquidity metrics
+        Compute all market-based risk features
         
         Args:
-            df: DataFrame with volume data
-            window: Rolling window size
-            
-        Returns:
-            DataFrame with liquidity columns
-        """
-        df = df.copy()
-        df = df.sort_values(['symbol', 'Date'])
-        
-        # Average volume
-        df['avg_volume'] = df.groupby('symbol')['Volume'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).mean()
-        )
-        
-        # Volume volatility (liquidity risk)
-        df['volume_volatility'] = df.groupby('symbol')['Volume'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).std()
-        )
-        
-        # Normalized volume volatility
-        df['liquidity_risk'] = df['volume_volatility'] / (df['avg_volume'] + 1)
-        
-        # Fill NaN
-        df['liquidity_risk'] = df['liquidity_risk'].fillna(0)
-        
-        log.info("✓ Computed liquidity metrics")
-        return df
-    
-    def compute_all_features(self) -> pd.DataFrame:
-        """
-        Compute all market features
+            market_data: DataFrame with OHLCV data
+            benchmark_data: DataFrame with benchmark OHLCV data
         
         Returns:
             DataFrame with all computed features
         """
-        log.info("=" * 60)
-        log.info("COMPUTING MARKET FEATURES")
-        log.info("=" * 60)
+        log.info("Computing market-based risk features...")
         
-        # Load data
-        stocks_df, benchmark_df = self.load_data()
+        # Ensure Date column is datetime
+        market_data['Date'] = pd.to_datetime(market_data['Date'])
+        benchmark_data['Date'] = pd.to_datetime(benchmark_data['Date'])
         
-        # Compute features in sequence
-        log.info("Computing features...")
-        
-        if 'returns' in self.features_config:
-            stocks_df = self.compute_returns(stocks_df)
-        
-        if 'volatility_21d' in self.features_config or 'volatility_60d' in self.features_config:
-            windows = []
-            if 'volatility_21d' in self.features_config:
-                windows.append(21)
-            if 'volatility_60d' in self.features_config:
-                windows.append(60)
-            stocks_df = self.compute_volatility(stocks_df, windows)
-        
-        if 'max_drawdown' in self.features_config:
-            stocks_df = self.compute_max_drawdown(stocks_df)
-        
-        if 'beta' in self.features_config:
-            stocks_df = self.compute_beta(stocks_df, benchmark_df)
-        
-        if 'sharpe_ratio' in self.features_config:
-            stocks_df = self.compute_sharpe_ratio(stocks_df)
-        
-        if 'atr' in self.features_config:
-            stocks_df = self.compute_atr(stocks_df)
-        
-        if 'liquidity' in self.features_config:
-            stocks_df = self.compute_liquidity(stocks_df)
-        
-        log.info("=" * 60)
-        log.info(f"✓ ALL FEATURES COMPUTED")
-        log.info(f"Total rows: {len(stocks_df)}")
-        log.info(f"Feature columns: {[col for col in stocks_df.columns if col not in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits', 'symbol']]}")
-        log.info("=" * 60)
-        
-        return stocks_df
-    
-    def save_features(self, df: pd.DataFrame, filename: str = "market_features.parquet"):
-        """
-        Save computed features to file
-        
-        Args:
-            df: DataFrame with features
-            filename: Output filename
-        """
-        ensure_dir(self.config['paths']['features'])
-        filepath = f"{self.config['paths']['features']}/{filename}"
-        save_dataframe(df, filepath, format='parquet')
-        log.info(f"✓ Saved features to {filepath}")
-    
-    def run(self) -> pd.DataFrame:
-        """
-        Run the complete market data agent pipeline
-        
-        Returns:
-            DataFrame with all features
-        """
-        log.info("Starting Market Data Agent...")
+        # Sort by symbol and date
+        market_data = market_data.sort_values(['symbol', 'Date'])
+        benchmark_data = benchmark_data.sort_values('Date')
         
         # Compute features
-        features_df = self.compute_all_features()
+        df = self.compute_returns(market_data)
+        df = self.compute_volatility(df)
+        df = self.compute_max_drawdown(df)
+        df = self.compute_beta(df, benchmark_data)
+        df = self.compute_sharpe_ratio(df)
+        df = self.compute_atr(df)
+        df = self.compute_liquidity_metrics(df)
         
-        # Save features
-        self.save_features(features_df)
+        # Handle infinities and NaNs
+        df = df.replace([np.inf, -np.inf], np.nan)
         
-        log.info("Market Data Agent completed successfully")
-        return features_df
+        log.info(f"✓ Computed features for {df['symbol'].nunique()} stocks")
+        
+        return df
+    
+    def process(self):
+        """
+        Main processing method - Load data from DB, compute features, save back to DB
+        """
+        log.info("=" * 60)
+        log.info("MARKET DATA AGENT - Computing Risk Features")
+        log.info("=" * 60)
+        
+        with DatabaseService() as db:
+            # Load market data from database
+            log.info("Loading market data from database...")
+            market_data = db.get_market_data(days=730)  # 2 years of data
+            
+            if market_data.empty:
+                log.error("No market data found in database!")
+                return None
+            
+            log.info(f"Loaded {len(market_data)} market data records")
+            
+            # Load benchmark data (SPY)
+            log.info("Loading benchmark data...")
+            benchmark_data = db.get_market_data(symbol='SPY', days=730)
+            
+            if benchmark_data.empty:
+                log.warning("No benchmark data found, using market average as proxy")
+                # Create synthetic benchmark from market average
+                benchmark_data = market_data.groupby('Date').agg({
+                    'Close': 'mean',
+                    'Volume': 'sum'
+                }).reset_index()
+                benchmark_data['symbol'] = 'BENCHMARK'
+            
+            # Compute all features
+            features_df = self.compute_all_features(market_data, benchmark_data)
+            
+            # Features are already part of market_data, just return
+            log.info("✓ Market features computed successfully")
+            
+            return features_df
+
+def main():
+    """Main execution"""
+    agent = MarketDataAgent()
+    features = agent.process()
+    
+    if features is not None:
+        log.info("=" * 60)
+        log.info("✓ MARKET DATA AGENT COMPLETED SUCCESSFULLY")
+        log.info("=" * 60)
+    else:
+        log.error("Market data agent failed")
+
+if __name__ == "__main__":
+    main()
