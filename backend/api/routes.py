@@ -332,6 +332,7 @@ def query_rag():
 
         query = data['query']
         stock_symbol = data.get('stock_symbol')
+        chat_history = data.get('chat_history', [])
         query_lower = query.lower()
 
         rag_agent = get_rag_agent()
@@ -353,11 +354,30 @@ def query_rag():
                     all_symbols = risk_scores['symbol'].unique().tolist()
                     if not detected_symbol:
                         import re
-                        # Use word boundary matching to avoid false positives
-                        # e.g., "mutual" should NOT match "MU"
+                        # Match uppercase tickers (word boundary)
                         query_words = set(re.findall(r'\b[A-Z]{2,5}\b', query))
                         for sym in all_symbols:
                             if sym in query_words:
+                                detected_symbol = sym
+                                break
+
+                    # Also match common company names
+                    if not detected_symbol:
+                        name_map = {
+                            'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
+                            'alphabet': 'GOOGL', 'amazon': 'AMZN', 'meta': 'META',
+                            'facebook': 'META', 'tesla': 'TSLA', 'nvidia': 'NVDA',
+                            'netflix': 'NFLX', 'adobe': 'ADBE', 'salesforce': 'CRM',
+                            'paypal': 'PYPL', 'shopify': 'SHOP', 'spotify': 'SPOT',
+                            'uber': 'UBER', 'zoom': 'ZM', 'snowflake': 'SNOW',
+                            'palantir': 'PLTR', 'coinbase': 'COIN', 'intel': 'INTC',
+                            'amd': 'AMD', 'micron': 'MU', 'oracle': 'ORCL',
+                            'ibm': 'IBM', 'cisco': 'CSCO', 'qualcomm': 'QCOM',
+                            'workday': 'WDAY', 'crowdstrike': 'CRWD', 'datadog': 'DDOG',
+                            'palo alto': 'PANW', 'servicenow': 'NOW', 'intuit': 'INTU',
+                        }
+                        for name, sym in name_map.items():
+                            if name in query_lower and sym in all_symbols:
                                 detected_symbol = sym
                                 break
         except:
@@ -432,24 +452,13 @@ def query_rag():
                 log.warning(f"RAG retrieval failed: {e}")
 
         # ---- BUILD PROMPT ----
-        system_prompt = """You are an expert financial analyst and assistant. You have deep knowledge of:
-- Stock markets, trading strategies, and investment analysis
-- Financial metrics (P/E ratio, Sharpe ratio, beta, alpha, drawdown, volatility, etc.)
-- Risk management and portfolio theory
-- Financial news, market trends, and economic concepts
-- Technical analysis and fundamental analysis
-- Financial instruments (mutual funds, ETFs, options, bonds, derivatives, etc.)
-- Personal finance (SIP, compound interest, retirement planning, tax planning)
+        system_prompt = """You are an expert financial analyst assistant. Answer the user's question helpfully.
 
-Rules:
-- ONLY answer questions related to finance, investing, markets, economics, and personal finance
-- If the user asks about anything outside the financial domain (e.g., cooking, sports, movies, coding, general knowledge, health, etc.), respond ONLY with: "I'm a financial assistant and can only help with finance-related questions. Feel free to ask me about stocks, investments, markets, risk analysis, financial planning, or any other finance topic!"
-- Do NOT attempt to answer non-financial questions, even partially
-- If portfolio risk data or news articles are provided below, use them ONLY if directly relevant to the question
-- Do NOT mention portfolio data, risk scores, or news articles unless the user specifically asked about them
-- For general finance questions (definitions, calculations, concepts), answer purely from your knowledge
-- For calculations, show your work step by step with correct math
-- Be concise but thorough"""
+You can answer questions about: stocks, markets, investing, trading, financial metrics, company news, risk analysis, portfolio management, mutual funds, ETFs, options, bonds, personal finance, SIP, compound interest, retirement planning, economic concepts, and anything related to finance.
+
+When portfolio data or news articles are provided below, use them in your answer. Be specific with numbers and data.
+
+Only refuse if the question is completely unrelated to finance (like cooking, movies, or sports). For everything else, answer helpfully."""
 
         user_message = query
         if data_context or news_context:
@@ -460,8 +469,21 @@ Rules:
 
 Use the above data to answer the question. Be specific with numbers and stock symbols."""
 
-        full_prompt = f"""{system_prompt}
+        # Build conversation history string (last 4 exchanges max)
+        history_str = ""
+        if chat_history and len(chat_history) > 1:
+            # Skip the system greeting and the current user message (last item)
+            recent = chat_history[1:-1][-8:]  # Last 4 exchanges (8 messages)
+            if recent:
+                history_str = "\n--- Conversation History ---\n"
+                for msg in recent:
+                    role = "User" if msg.get('role') == 'user' else "Assistant"
+                    content = msg.get('content', '')[:300]  # Truncate long messages
+                    history_str += f"{role}: {content}\n"
+                history_str += "--- End History ---\n"
 
+        full_prompt = f"""{system_prompt}
+{history_str}
 {user_message}
 
 Answer:"""
@@ -491,6 +513,228 @@ Answer:"""
             'explanation': f"I encountered an error: {str(e)}",
             'sources': [], 'num_sources': 0, 'confidence': 0.0
         }), 200
+
+
+@api_bp.route('/query-rag-stream', methods=['POST'])
+def query_rag_stream():
+    """
+    Streaming version of the AI assistant.
+    Returns Server-Sent Events (SSE) with tokens as they're generated.
+    First event sends sources/metadata, then text tokens stream in, finally a [DONE] event.
+    """
+    from flask import Response, stream_with_context
+    import json
+
+    data = request.get_json()
+    if not data or 'query' not in data:
+        return jsonify({'error': 'Query is required'}), 400
+
+    query = data['query']
+    stock_symbol = data.get('stock_symbol')
+    chat_history = data.get('chat_history', [])
+    query_lower = query.lower()
+
+    def generate():
+        try:
+            rag_agent = get_rag_agent()
+            if not rag_agent or not rag_agent.llm:
+                yield f"data: {json.dumps({'type': 'error', 'content': 'AI assistant is initializing.'})}\n\n"
+                return
+
+            # ---- DETECT MULTIPLE SYMBOLS ----
+            detected_symbols = []
+            name_map = {
+                'apple': 'AAPL', 'microsoft': 'MSFT', 'google': 'GOOGL',
+                'alphabet': 'GOOGL', 'amazon': 'AMZN', 'meta': 'META',
+                'facebook': 'META', 'tesla': 'TSLA', 'nvidia': 'NVDA',
+                'netflix': 'NFLX', 'adobe': 'ADBE', 'salesforce': 'CRM',
+                'paypal': 'PYPL', 'shopify': 'SHOP', 'spotify': 'SPOT',
+                'uber': 'UBER', 'zoom': 'ZM', 'snowflake': 'SNOW',
+                'palantir': 'PLTR', 'coinbase': 'COIN', 'intel': 'INTC',
+                'amd': 'AMD', 'micron': 'MU', 'oracle': 'ORCL',
+                'ibm': 'IBM', 'cisco': 'CSCO', 'qualcomm': 'QCOM',
+                'workday': 'WDAY', 'crowdstrike': 'CRWD', 'datadog': 'DDOG',
+                'palo alto': 'PANW', 'servicenow': 'NOW', 'intuit': 'INTU',
+            }
+
+            try:
+                with DatabaseService() as db:
+                    risk_scores = db.get_latest_risk_scores()
+                    sentiment_data = db.get_recent_sentiment(days=14)
+                    all_symbols = risk_scores['symbol'].unique().tolist() if not risk_scores.empty else []
+
+                    if stock_symbol:
+                        detected_symbols = [stock_symbol]
+                    else:
+                        import re
+                        # Detect uppercase tickers
+                        query_words = set(re.findall(r'\b[A-Z]{2,5}\b', query))
+                        for sym in all_symbols:
+                            if sym in query_words:
+                                detected_symbols.append(sym)
+
+                        # Detect company names
+                        for name, sym in name_map.items():
+                            if name in query_lower and sym in all_symbols and sym not in detected_symbols:
+                                detected_symbols.append(sym)
+            except:
+                risk_scores = pd.DataFrame()
+                sentiment_data = pd.DataFrame()
+
+            # ---- BUILD CONTEXT ----
+            data_context = ""
+            news_context = ""
+            sources = []
+
+            mentions_our_data = any(kw in query_lower for kw in [
+                'highest risk', 'lowest risk', 'riskiest', 'safest',
+                'risk score', 'risk rank', 'alert', 'watchlist',
+                'our stocks', 'my stocks', 'my portfolio',
+                'portfolio risk', 'risk summary', 'dashboard',
+            ]) or len(detected_symbols) > 0
+
+            if mentions_our_data and not risk_scores.empty:
+                # Multi-stock data
+                for sym in detected_symbols:
+                    stock_row = risk_scores[risk_scores['symbol'] == sym]
+                    if not stock_row.empty:
+                        r = stock_row.iloc[0]
+                        data_context += (
+                            f"\n[Portfolio Data for {sym}]\n"
+                            f"  Risk Score: {r['risk_score']:.3f} ({r.get('risk_level', 'N/A')})\n"
+                            f"  Risk Rank: {r.get('risk_rank', 'N/A')} out of {len(risk_scores)}\n"
+                            f"  Drivers: {r.get('risk_drivers', 'N/A')}\n"
+                            f"  21d Volatility: {r.get('volatility_21d', 'N/A')}\n"
+                            f"  Max Drawdown: {r.get('max_drawdown', 'N/A')}\n"
+                        )
+
+                    # Sentiment data for this stock
+                    if not sentiment_data.empty:
+                        stock_sent = sentiment_data[sentiment_data['stock_symbol'] == sym]
+                        if not stock_sent.empty:
+                            avg_sent = stock_sent['avg_sentiment'].mean()
+                            article_count = stock_sent['article_count'].sum()
+                            recent_sent = stock_sent.sort_values('date', ascending=False).head(3)
+                            sent_trend = "improving" if recent_sent['avg_sentiment'].is_monotonic_increasing else \
+                                         "declining" if recent_sent['avg_sentiment'].is_monotonic_decreasing else "mixed"
+                            data_context += (
+                                f"  Sentiment (last 14d): avg={avg_sent:.3f} ({'positive' if avg_sent > 0.1 else 'negative' if avg_sent < -0.1 else 'neutral'}), "
+                                f"trend={sent_trend}, articles={int(article_count)}\n"
+                            )
+
+                # Ranking data
+                if any(kw in query_lower for kw in ['highest risk', 'riskiest', 'lowest risk', 'safest', 'risk summary', 'risk overview', 'all stocks risk']):
+                    top = risk_scores.nlargest(10, 'risk_score')
+                    data_context += "\n[Top 10 Highest Risk Stocks]\n"
+                    for _, r in top.iterrows():
+                        data_context += f"  {r['symbol']}: {r['risk_score']:.3f} ({r.get('risk_level','')}) - {r.get('risk_drivers','')}\n"
+                    bottom = risk_scores.nsmallest(5, 'risk_score')
+                    data_context += "\n[Top 5 Lowest Risk Stocks]\n"
+                    for _, r in bottom.iterrows():
+                        data_context += f"  {r['symbol']}: {r['risk_score']:.3f} ({r.get('risk_level','')})\n"
+                    data_context += f"\nTotal: {len(risk_scores)} | High: {len(risk_scores[risk_scores['risk_level']=='High'])} | Medium: {len(risk_scores[risk_scores['risk_level']=='Medium'])} | Low: {len(risk_scores[risk_scores['risk_level']=='Low'])}\n"
+
+            # RAG news retrieval — for each detected symbol
+            if rag_agent.vector_store and (detected_symbols or mentions_our_data):
+                try:
+                    search_query = query
+                    for sym in detected_symbols[:3]:  # Limit to 3 stocks for news
+                        docs = rag_agent.retrieve_documents(f"{sym} stock news", sym)
+                        if docs:
+                            if not news_context:
+                                news_context = "\n[Recent News Articles]\n"
+                            for doc in docs[:3]:
+                                headline = doc.page_content.split('\n')[0][:150]
+                                src = doc.metadata.get('source', 'Unknown')
+                                sent = doc.metadata.get('sentiment', 'neutral')
+                                news_context += f"  [{src}] {headline} (sentiment: {sent})\n"
+                                sources.append({
+                                    'headline': headline, 'source': src,
+                                    'url': doc.metadata.get('url', ''), 'sentiment': sent,
+                                })
+                    # Also do a general query search if no stock-specific results
+                    if not sources:
+                        docs = rag_agent.retrieve_documents(query, None)
+                        if docs:
+                            news_context = "\n[Recent News Articles]\n"
+                            for doc in docs[:5]:
+                                headline = doc.page_content.split('\n')[0][:150]
+                                src = doc.metadata.get('source', 'Unknown')
+                                sent = doc.metadata.get('sentiment', 'neutral')
+                                news_context += f"  [{src}] {headline} (sentiment: {sent})\n"
+                                sources.append({
+                                    'headline': headline, 'source': src,
+                                    'url': doc.metadata.get('url', ''), 'sentiment': sent,
+                                })
+                except:
+                    pass
+
+            # Send sources metadata first
+            yield f"data: {json.dumps({'type': 'meta', 'sources': sources, 'stock_symbol': detected_symbols[0] if detected_symbols else None})}\n\n"
+
+            # ---- BUILD PROMPT ----
+            system_prompt = """You are an expert financial analyst assistant. Answer the user's question helpfully.
+
+You can answer questions about: stocks, markets, investing, trading, financial metrics, company news, risk analysis, portfolio management, mutual funds, ETFs, options, bonds, personal finance, SIP, compound interest, retirement planning, economic concepts, and anything related to finance.
+
+When portfolio data or news articles are provided below, use them in your answer. Be specific with numbers and data.
+When comparing stocks, present a clear side-by-side comparison using the data provided.
+When sentiment data is available, mention the sentiment trend and what it means.
+
+Only refuse if the question is completely unrelated to finance (like cooking, movies, or sports). For everything else, answer helpfully.
+
+IMPORTANT: At the very end of your answer, on a new line, write exactly:
+FOLLOW_UP: [suggestion 1] | [suggestion 2] | [suggestion 3]
+These should be 3 short, relevant follow-up questions the user might want to ask next. Keep each under 50 characters."""
+
+            user_message = query
+            if data_context or news_context:
+                user_message = f"Question: {query}\n{data_context}\n{news_context}\nUse the above data to answer. Be specific."
+
+            history_str = ""
+            if chat_history and len(chat_history) > 1:
+                recent = chat_history[1:-1][-8:]
+                if recent:
+                    history_str = "\n--- Conversation History ---\n"
+                    for msg in recent:
+                        role = "User" if msg.get('role') == 'user' else "Assistant"
+                        history_str += f"{role}: {msg.get('content', '')[:300]}\n"
+                    history_str += "--- End History ---\n"
+
+            full_prompt = f"{system_prompt}\n{history_str}\n{user_message}\n\nAnswer:"
+
+            # ---- STREAM TOKENS ----
+            full_response = ""
+            for chunk in rag_agent.llm.stream(full_prompt):
+                if chunk:
+                    full_response += chunk
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+
+            # Extract follow-up suggestions from response
+            follow_ups = []
+            if "FOLLOW_UP:" in full_response:
+                parts = full_response.split("FOLLOW_UP:")
+                if len(parts) > 1:
+                    suggestions_str = parts[-1].strip()
+                    follow_ups = [s.strip() for s in suggestions_str.split("|") if s.strip()][:3]
+
+            yield f"data: {json.dumps({'type': 'done', 'follow_ups': follow_ups})}\n\n"
+
+        except Exception as e:
+            log.error(f"Streaming error: {e}")
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Access-Control-Allow-Origin': '*',
+        }
+    )
 
 @api_bp.route('/risk-history', methods=['GET'])
 def get_risk_history():

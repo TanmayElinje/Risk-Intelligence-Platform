@@ -37,9 +37,9 @@ export const apiService = {
   getMarketFeatures: (symbol, params = {}) => api.get(`/market-features/${symbol}`, { params }),
   
   // RAG query
-  queryRAG: (query, stockSymbol = null) => {
-    console.log('API: Sending RAG query:', { query, stock_symbol: stockSymbol });
-    return api.post('/query-rag', { query, stock_symbol: stockSymbol })
+  queryRAG: (query, stockSymbol = null, chatHistory = []) => {
+    console.log('API: Sending RAG query:', { query, stock_symbol: stockSymbol, history_length: chatHistory.length });
+    return api.post('/query-rag', { query, stock_symbol: stockSymbol, chat_history: chatHistory })
       .then(response => {
         console.log('API: RAG response received:', response);
         return response;

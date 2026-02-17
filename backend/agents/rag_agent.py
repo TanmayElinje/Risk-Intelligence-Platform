@@ -1,6 +1,7 @@
 """
 RAG Agent - Retrieval-Augmented Generation for explainable insights
 """
+import os
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Optional
@@ -58,9 +59,28 @@ class NewsRAGAgent:
             raise
     
     def _init_llm(self):
-        """Initialize LLM for generation"""
+        """Initialize LLM for generation. Tries Gemini first, falls back to Ollama."""
         llm_config = self.agent_config['llm']
         
+        # Try Groq first (if API key is available)
+        groq_key = os.environ.get("GROQ_API_KEY", "")
+        if groq_key:
+            try:
+                from backend.services.groq_client import GroqLLM
+                self.llm = GroqLLM(model="llama-3.3-70b-versatile", temperature=0.3)
+                # Test connection
+                test = self.llm.invoke("Reply with just the word OK")
+                if test and "Error" not in test:
+                    log.info("✓ Groq LLM connected successfully")
+                    return
+                else:
+                    log.warning(f"Groq test failed: {test}")
+                    self.llm = None
+            except Exception as e:
+                log.warning(f"Groq not available: {e}")
+                self.llm = None
+
+        # Fall back to Ollama
         if llm_config['provider'] == 'ollama':
             log.info(f"Initializing Ollama LLM: {llm_config['model']}")
             
@@ -80,7 +100,7 @@ class NewsRAGAgent:
                 log.warning("RAG explanations will use template-based approach")
                 self.llm = None
         else:
-            log.warning("Unsupported LLM provider, using template-based approach")
+            log.warning("No LLM provider available, using template-based approach")
             self.llm = None
     
     def load_news_data(self) -> pd.DataFrame:

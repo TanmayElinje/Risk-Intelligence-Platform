@@ -4,6 +4,12 @@ Flask API Application with WebSocket support
 from flask import Flask, request, jsonify
 from backend.utils import log, load_config
 from backend.websocket.socket_manager import socket_manager
+from dotenv import load_dotenv
+import os
+
+# Load .env file early
+env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
 def create_app():
     """Create and configure Flask application"""
