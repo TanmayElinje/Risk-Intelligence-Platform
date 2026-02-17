@@ -1,206 +1,173 @@
+// frontend/src/pages/Dashboard.jsx - CORRECT API FORMAT
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Activity,
-  BarChart3
-} from 'lucide-react';
-import StatsCard from '../components/StatsCards';
-import RiskScoreTable from '../components/RiskScoreTable';
-import AlertsList from '../components/AlertsList';
-import ConnectionStatus from '../components/ConnectionStatus';
-import LiveAlertToast from '../components/LiveAlertToast';
 import { useWebSocket } from '../hooks/useWebSocket';
+import RiskScoreTable from '../components/RiskScoreTable';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [riskScores, setRiskScores] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentAlert, setCurrentAlert] = useState(null);
+  const { lastMessage } = useWebSocket();
 
-  // WebSocket connection
-  const {
-    isConnected,
-    stats: liveStats,
-    latestAlert,
-    riskUpdates
-  } = useWebSocket();
-
-  // Fetch initial data
   useEffect(() => {
-    fetchDashboardData();
+    fetchData();
   }, []);
 
-  // Update stats from WebSocket
   useEffect(() => {
-    if (liveStats) {
-      setStats(prev => ({
-        ...prev,
-        total_stocks: liveStats.total_stocks,
-        high_risk_stocks: liveStats.high_risk_stocks,
-        recent_alerts_count: liveStats.recent_alerts_count
-      }));
+    if (lastMessage?.type === 'stats_update') {
+      setStats(lastMessage);
     }
-  }, [liveStats]);
+  }, [lastMessage]);
 
-  // Handle new alerts from WebSocket
-  useEffect(() => {
-    if (latestAlert) {
-      // Show toast notification
-      setCurrentAlert(latestAlert);
-      
-      // Add to alerts list
-      setAlerts(prev => [latestAlert, ...prev]);
-    }
-  }, [latestAlert]);
-
-  // Update risk scores from WebSocket
-  useEffect(() => {
-    if (Object.keys(riskUpdates).length > 0) {
-      setRiskScores(prev => {
-        const updated = [...prev];
-        Object.entries(riskUpdates).forEach(([symbol, update]) => {
-          const index = updated.findIndex(s => s.symbol === symbol);
-          if (index !== -1) {
-            updated[index] = {
-              ...updated[index],
-              risk_score: update.risk_score,
-              risk_level: update.risk_level,
-              updated: true // Flag for animation
-            };
-          }
-        });
-        return updated;
-      });
-
-      // Remove update flag after animation
-      setTimeout(() => {
-        setRiskScores(prev =>
-          prev.map(s => ({ ...s, updated: false }))
-        );
-      }, 1000);
-    }
-  }, [riskUpdates]);
-
-  const fetchDashboardData = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
+      
+      const [statsRes, scoresRes, alertsRes] = await Promise.all([
+        fetch('http://localhost:5000/api/stats'),
+        fetch('http://localhost:5000/api/risk-scores'),
+        fetch('http://localhost:5000/api/alerts?limit=10')
+      ]);
 
-      // Fetch stats
-      const statsRes = await fetch('http://localhost:5000/api/stats');
       const statsData = await statsRes.json();
-      setStats(statsData);
-
-      // Fetch risk scores
-      const scoresRes = await fetch('http://localhost:5000/api/risk-scores');
       const scoresData = await scoresRes.json();
-      setRiskScores(scoresData.data || scoresData);
-
-      // Fetch recent alerts
-      const alertsRes = await fetch('http://localhost:5000/api/alerts?limit=10');
       const alertsData = await alertsRes.json();
-      setAlerts(alertsData.data || alertsData);
 
+      setStats(statsData);
+      
+      // Handle the correct API format: {count: 50, data: [...]}
+      if (scoresData.data && Array.isArray(scoresData.data)) {
+        setRiskScores(scoresData.data);
+      } else if (Array.isArray(scoresData)) {
+        setRiskScores(scoresData);
+      } else if (scoresData.risk_scores && Array.isArray(scoresData.risk_scores)) {
+        setRiskScores(scoresData.risk_scores);
+      } else {
+        console.error('Unexpected scores data format:', scoresData);
+        setRiskScores([]);
+      }
+      
+      // Handle alerts - same format
+      if (alertsData.data && Array.isArray(alertsData.data)) {
+        setAlerts(alertsData.data);
+      } else if (Array.isArray(alertsData)) {
+        setAlerts(alertsData);
+      } else if (alertsData.alerts && Array.isArray(alertsData.alerts)) {
+        setAlerts(alertsData.alerts);
+      } else {
+        setAlerts([]);
+      }
+      
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setRiskScores([]);
+      setAlerts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && !stats) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Connection Status */}
-      <ConnectionStatus isConnected={isConnected} />
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="bg-white rounded-lg shadow p-6 transition-colors">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Risk Intelligence Dashboard
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Real-time market risk monitoring and analysis
+              <span className="ml-2 text-green-600 font-medium">
+                • Live Updates Active
+              </span>
+            </p>
+          </div>
+          <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+            AI Assistant
+          </button>
+        </div>
+      </div>
 
-      {/* Live Alert Toast */}
-      {currentAlert && (
-        <LiveAlertToast
-          alert={currentAlert}
-          onClose={() => setCurrentAlert(null)}
-        />
-      )}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Risk Scores Table */}
+        <div className="lg:col-span-2">
+          {loading ? (
+            <div className="bg-white rounded-lg shadow p-12 text-center transition-colors">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-4">Loading risk scores...</p>
+            </div>
+          ) : (
+            <RiskScoreTable scores={riskScores} />
+          )}
+        </div>
 
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Risk Intelligence Dashboard
-              </h1>
+        {/* Recent Alerts */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow overflow-hidden transition-colors">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Recent Alerts
+              </h2>
               <p className="text-sm text-gray-500 mt-1">
-                Real-time market risk monitoring and analysis
-                {isConnected && (
-                  <span className="ml-2 text-green-600 font-medium">
-                    • Live Updates Active
-                  </span>
-                )}
+                Latest 10 risk notifications
               </p>
             </div>
-            <button
-              onClick={() => navigate('/chat')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              AI Assistant
-            </button>
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatsCard
-            title="Total Stocks"
-            value={stats?.total_stocks || 0}
-            icon={<BarChart3 className="w-6 h-6" />}
-            color="blue"
-          />
-          <StatsCard
-            title="High Risk"
-            value={stats?.high_risk_stocks || 0}
-            icon={<TrendingDown className="w-6 h-6" />}
-            color="red"
-            subtitle={`${((stats?.high_risk_stocks / stats?.total_stocks) * 100 || 0).toFixed(1)}% of portfolio`}
-          />
-          <StatsCard
-            title="Active Alerts"
-            value={stats?.recent_alerts_count || 0}
-            icon={<AlertTriangle className="w-6 h-6" />}
-            color="yellow"
-          />
-          <StatsCard
-            title="Avg Risk Score"
-            value={stats?.avg_risk_score?.toFixed(2) || '0.00'}
-            icon={<Activity className="w-6 h-6" />}
-            color="purple"
-          />
-        </div>
-
-        {/* Risk Scores Table and Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <RiskScoreTable scores={riskScores} />
+            <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+              {alerts.length === 0 ? (
+                <p className="p-6 text-center text-gray-500">No alerts available</p>
+              ) : (
+                alerts.map((alert, index) => (
+                  <div 
+                    key={index} 
+                    className="p-4 hover:bg-gray-50 transition-colors border-l-4 border-red-500"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-semibold text-gray-900">
+                            {alert.symbol}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            {alert.days_ago} days ago
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm text-gray-600 mb-2">
+                          {alert.alert_type}
+                        </p>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">
+                            Risk: {alert.risk_score}%
+                          </span>
+                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                            {alert.risk_level}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <div>
-            <AlertsList alerts={alerts} />
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

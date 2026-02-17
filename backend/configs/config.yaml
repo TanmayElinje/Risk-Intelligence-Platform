@@ -45,7 +45,7 @@ stocks:
     - "ZM"      # Zoom
     - "DOCU"    # DocuSign
     - "SHOP"    # Shopify
-    - "SQ"      # Block (Square)
+    - "XS"      # Block (Square)
     - "COIN"    # Coinbase
     - "RBLX"    # Roblox
     - "DDOG"    # Datadog

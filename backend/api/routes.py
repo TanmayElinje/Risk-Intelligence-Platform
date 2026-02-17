@@ -319,53 +319,177 @@ def get_market_features(symbol):
 
 @api_bp.route('/query-rag', methods=['POST'])
 def query_rag():
-    """Query RAG system for explanations"""
+    """
+    AI Financial Assistant endpoint.
+    Works like a proper financial chatbot — can answer any finance question.
+    Enriches answers with real portfolio risk data and news when relevant.
+    """
     try:
         data = request.get_json()
-        
+
         if not data or 'query' not in data:
             return jsonify({'error': 'Query is required'}), 400
-        
+
         query = data['query']
         stock_symbol = data.get('stock_symbol')
-        
-        # Get RAG agent
+        query_lower = query.lower()
+
         rag_agent = get_rag_agent()
-        
-        if rag_agent is None or rag_agent.vector_store is None:
+
+        if not rag_agent or not rag_agent.llm:
             return jsonify({
                 'query': query,
-                'stock_symbol': stock_symbol,
-                'explanation': 'The RAG knowledge base is currently being initialized. Please try again in a moment.',
-                'sources': [],
-                'num_sources': 0,
-                'confidence': 0.0
+                'explanation': 'AI assistant is initializing. Please try again in a moment.',
+                'sources': [], 'num_sources': 0, 'confidence': 0.0
             }), 200
-        
-        # Generate explanation
-        result = rag_agent.generate_explanation(query, stock_symbol)
-        
-        # Ensure all required fields
-        response_data = {
-            'query': result.get('query', query),
-            'stock_symbol': result.get('stock_symbol', stock_symbol),
-            'explanation': result.get('explanation', 'No explanation available'),
-            'sources': result.get('sources', []),
-            'num_sources': result.get('num_sources', 0),
-            'confidence': result.get('confidence', 0.0)
-        }
-        
-        return jsonify(response_data), 200
-        
+
+        # ---- AUTO-DETECT STOCK SYMBOL FROM QUERY ----
+        detected_symbol = stock_symbol
+        all_symbols = []
+        try:
+            with DatabaseService() as db:
+                risk_scores = db.get_latest_risk_scores()
+                if not risk_scores.empty:
+                    all_symbols = risk_scores['symbol'].unique().tolist()
+                    if not detected_symbol:
+                        import re
+                        # Use word boundary matching to avoid false positives
+                        # e.g., "mutual" should NOT match "MU"
+                        query_words = set(re.findall(r'\b[A-Z]{2,5}\b', query))
+                        for sym in all_symbols:
+                            if sym in query_words:
+                                detected_symbol = sym
+                                break
+        except:
+            risk_scores = pd.DataFrame()
+
+        # ---- BUILD OPTIONAL CONTEXT ----
+        # Only add data context when the question is specifically about our tracked stocks
+        data_context = ""
+        news_context = ""
+        sources = []
+
+        # Be strict about when to inject portfolio data — only for direct stock/risk questions
+        mentions_our_data = any(kw in query_lower for kw in [
+            'highest risk', 'lowest risk', 'riskiest', 'safest',
+            'risk score', 'risk rank', 'alert', 'watchlist',
+            'our stocks', 'my stocks', 'my portfolio',
+            'portfolio risk', 'risk summary', 'dashboard',
+        ]) or detected_symbol is not None
+
+        if mentions_our_data and not risk_scores.empty:
+            # Stock-specific data
+            if detected_symbol:
+                stock_row = risk_scores[risk_scores['symbol'] == detected_symbol]
+                if not stock_row.empty:
+                    r = stock_row.iloc[0]
+                    data_context += (
+                        f"\n[Portfolio Data for {detected_symbol}]\n"
+                        f"  Risk Score: {r['risk_score']:.3f} ({r.get('risk_level', 'N/A')})\n"
+                        f"  Risk Rank: {r.get('risk_rank', 'N/A')} out of {len(risk_scores)}\n"
+                        f"  Drivers: {r.get('risk_drivers', 'N/A')}\n"
+                        f"  21d Volatility: {r.get('volatility_21d', 'N/A')}\n"
+                        f"  Max Drawdown: {r.get('max_drawdown', 'N/A')}\n"
+                        f"  Avg Sentiment: {r.get('avg_sentiment', 'N/A')}\n"
+                    )
+
+            # Risk ranking data
+            # Risk ranking data — only when explicitly asking about rankings
+            if any(kw in query_lower for kw in ['highest risk', 'riskiest', 'lowest risk', 'safest', 'risk summary', 'risk overview', 'all stocks risk']):
+                top = risk_scores.nlargest(10, 'risk_score')
+                data_context += "\n[Top 10 Highest Risk Stocks in Portfolio]\n"
+                for _, r in top.iterrows():
+                    data_context += f"  {r['symbol']}: {r['risk_score']:.3f} ({r.get('risk_level','')}) - {r.get('risk_drivers','')}\n"
+
+                bottom = risk_scores.nsmallest(5, 'risk_score')
+                data_context += "\n[Top 5 Lowest Risk Stocks]\n"
+                for _, r in bottom.iterrows():
+                    data_context += f"  {r['symbol']}: {r['risk_score']:.3f} ({r.get('risk_level','')})\n"
+
+                data_context += f"\nTotal stocks: {len(risk_scores)} | "
+                data_context += f"High: {len(risk_scores[risk_scores['risk_level']=='High'])} | "
+                data_context += f"Medium: {len(risk_scores[risk_scores['risk_level']=='Medium'])} | "
+                data_context += f"Low: {len(risk_scores[risk_scores['risk_level']=='Low'])}\n"
+
+        # RAG news retrieval (only when relevant)
+        if rag_agent.vector_store and (detected_symbol or mentions_our_data):
+            try:
+                docs = rag_agent.retrieve_documents(query, detected_symbol)
+                if docs:
+                    news_context = "\n[Recent News Articles]\n"
+                    for i, doc in enumerate(docs[:5]):
+                        headline = doc.page_content.split('\n')[0][:150]
+                        src = doc.metadata.get('source', 'Unknown')
+                        sent = doc.metadata.get('sentiment', 'neutral')
+                        news_context += f"  {i+1}. [{src}] {headline} (sentiment: {sent})\n"
+                        sources.append({
+                            'headline': headline,
+                            'source': src,
+                            'url': doc.metadata.get('url', ''),
+                            'sentiment': sent,
+                        })
+            except Exception as e:
+                log.warning(f"RAG retrieval failed: {e}")
+
+        # ---- BUILD PROMPT ----
+        system_prompt = """You are an expert financial analyst and assistant. You have deep knowledge of:
+- Stock markets, trading strategies, and investment analysis
+- Financial metrics (P/E ratio, Sharpe ratio, beta, alpha, drawdown, volatility, etc.)
+- Risk management and portfolio theory
+- Financial news, market trends, and economic concepts
+- Technical analysis and fundamental analysis
+- Financial instruments (mutual funds, ETFs, options, bonds, derivatives, etc.)
+- Personal finance (SIP, compound interest, retirement planning, tax planning)
+
+Rules:
+- ONLY answer questions related to finance, investing, markets, economics, and personal finance
+- If the user asks about anything outside the financial domain (e.g., cooking, sports, movies, coding, general knowledge, health, etc.), respond ONLY with: "I'm a financial assistant and can only help with finance-related questions. Feel free to ask me about stocks, investments, markets, risk analysis, financial planning, or any other finance topic!"
+- Do NOT attempt to answer non-financial questions, even partially
+- If portfolio risk data or news articles are provided below, use them ONLY if directly relevant to the question
+- Do NOT mention portfolio data, risk scores, or news articles unless the user specifically asked about them
+- For general finance questions (definitions, calculations, concepts), answer purely from your knowledge
+- For calculations, show your work step by step with correct math
+- Be concise but thorough"""
+
+        user_message = query
+        if data_context or news_context:
+            user_message = f"""Question: {query}
+
+{data_context}
+{news_context}
+
+Use the above data to answer the question. Be specific with numbers and stock symbols."""
+
+        full_prompt = f"""{system_prompt}
+
+{user_message}
+
+Answer:"""
+
+        # ---- GENERATE ----
+        try:
+            explanation = rag_agent.llm.invoke(full_prompt).strip()
+        except Exception as e:
+            log.error(f"LLM generation failed: {e}")
+            explanation = "I encountered an error generating a response. Please try again."
+
+        return jsonify({
+            'query': query,
+            'stock_symbol': detected_symbol,
+            'explanation': explanation,
+            'sources': sources,
+            'num_sources': len(sources),
+            'confidence': 0.9 if data_context else (0.7 if sources else 0.5),
+        }), 200
+
     except Exception as e:
         log.error(f"Error in query_rag: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'query': data.get('query', ''),
-            'stock_symbol': data.get('stock_symbol'),
-            'explanation': f"I encountered an error while processing your question. Error: {str(e)}",
-            'sources': [],
-            'num_sources': 0,
-            'confidence': 0.0
+            'explanation': f"I encountered an error: {str(e)}",
+            'sources': [], 'num_sources': 0, 'confidence': 0.0
         }), 200
 
 @api_bp.route('/risk-history', methods=['GET'])
@@ -393,3 +517,103 @@ def get_risk_history():
     except Exception as e:
         log.error(f"Error in get_risk_history: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== DATA REFRESH ENDPOINT ====================
+
+@api_bp.route('/refresh-data', methods=['POST'])
+def refresh_data():
+    """
+    Trigger a real data refresh from Yahoo Finance.
+    Fetches fresh OHLCV data and recomputes risk scores.
+
+    Request body (optional):
+        {
+            "period": "3mo",  // default "3mo"
+            "symbols": ["AAPL", "MSFT"]  // default: all from config
+        }
+    """
+    import threading
+
+    data = request.get_json() or {}
+    period = data.get('period', '3mo')
+    symbols = data.get('symbols', None)
+
+    def _run_refresh():
+        try:
+            from backend.scrapers.yfinance_collector import YFinanceCollector
+            from backend.utils import load_config
+
+            config = load_config()
+            syms = symbols or config['stocks']['symbols']
+            collector = YFinanceCollector()
+
+            log.info(f"Starting data refresh for {len(syms)} stocks (period={period})")
+
+            # Fetch market data
+            market_data = collector.get_multiple_stocks(syms, period=period)
+            if market_data.empty:
+                log.error("Data refresh failed: no data from yfinance")
+                return
+
+            # Save to database
+            from backend.database.models import SessionLocal, Stock, MarketData
+            db = SessionLocal()
+
+            inserted = 0
+            for symbol in market_data['symbol'].unique():
+                stock = db.query(Stock).filter(Stock.symbol == symbol).first()
+                if not stock:
+                    continue
+
+                # Delete old data
+                db.query(MarketData).filter(MarketData.stock_id == stock.id).delete()
+
+                symbol_data = market_data[market_data['symbol'] == symbol]
+                for _, row in symbol_data.iterrows():
+                    md = MarketData(
+                        stock_id=stock.id,
+                        date=row['Date'].date() if hasattr(row['Date'], 'date') else row['Date'],
+                        open=float(row['Open']) if pd.notna(row.get('Open')) else None,
+                        high=float(row['High']) if pd.notna(row.get('High')) else None,
+                        low=float(row['Low']) if pd.notna(row.get('Low')) else None,
+                        close=float(row['Close']) if pd.notna(row.get('Close')) else None,
+                        volume=int(row['Volume']) if pd.notna(row.get('Volume')) else None,
+                    )
+                    db.add(md)
+                    inserted += 1
+                db.commit()
+
+            db.close()
+            log.info(f"✓ Inserted {inserted} market data records")
+
+            # Recompute risk scores
+            try:
+                from backend.agents.market_agent import MarketDataAgent
+                from backend.agents.risk_agent import RiskScoringAgent
+
+                features = MarketDataAgent().process()
+                if features is not None:
+                    risk_scores = RiskScoringAgent().process()
+                    if risk_scores is not None:
+                        with DatabaseService() as dbs:
+                            dbs.save_risk_scores(risk_scores, upsert=True)
+                        log.info(f"✓ Recomputed risk scores for {len(risk_scores)} stocks")
+            except Exception as e:
+                log.error(f"Risk recomputation failed: {e}")
+
+            log.info("✓ Data refresh complete")
+
+        except Exception as e:
+            log.error(f"Data refresh error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    # Run in background thread so API returns immediately
+    thread = threading.Thread(target=_run_refresh, daemon=True)
+    thread.start()
+
+    return jsonify({
+        'message': f'Data refresh started for {len(symbols) if symbols else "all"} stocks (period={period})',
+        'status': 'running'
+    }), 202

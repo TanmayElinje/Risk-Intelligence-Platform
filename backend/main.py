@@ -107,7 +107,7 @@ def step_4_build_rag_knowledge_base():
                 doc_text = f"{article.headline}\n{article.description or ''}"
                 metadata = {
                     'source': article.source or 'Unknown',
-                    'symbol': article.stock.symbol if article.stock else 'GENERAL',
+                    'stock_symbol': article.stock.symbol if article.stock else 'GENERAL',
                     'date': article.published_date.isoformat() if article.published_date else '',
                     'sentiment': article.sentiment_label or 'neutral',
                     'url': article.url or ''

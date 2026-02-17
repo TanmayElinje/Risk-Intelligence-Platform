@@ -4,6 +4,7 @@ import { apiService } from '../services/api';
 import toast from 'react-hot-toast';
 import { LineChart, Line, AreaChart, Area, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
+import WatchlistButton from '../components/WatchlistButton';  // ← ADD THIS LINE
 
 const StockDetails = () => {
   const { symbol } = useParams();
@@ -119,21 +120,29 @@ const StockDetails = () => {
         ← Back to Dashboard
       </Link>
 
-      {/* Header */}
+      {/* Header - UPDATED SECTION */}
       <div className="card">
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold">{symbol}</h1>
             <p className="text-gray-600 mt-1">Last Price: ${stockData.Close?.toFixed(2)}</p>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold mb-2">
-              {stockData.risk_score?.toFixed(3)}
+          
+          {/* RIGHT SIDE - UPDATED */}
+          <div className="flex items-start gap-4">
+            {/* ADD WATCHLIST BUTTON HERE */}
+            <WatchlistButton symbol={symbol} />
+            
+            {/* EXISTING RISK SCORE DISPLAY */}
+            <div className="text-right">
+              <div className="text-4xl font-bold mb-2">
+                {stockData.risk_score?.toFixed(3)}
+              </div>
+              <span className={`badge badge-${stockData.risk_level?.toLowerCase()} text-lg px-4 py-2`}>
+                {stockData.risk_level} Risk
+              </span>
+              <p className="text-sm text-gray-500 mt-2">Rank #{stockData.risk_rank}</p>
             </div>
-            <span className={`badge badge-${stockData.risk_level?.toLowerCase()} text-lg px-4 py-2`}>
-              {stockData.risk_level} Risk
-            </span>
-            <p className="text-sm text-gray-500 mt-2">Rank #{stockData.risk_rank}</p>
           </div>
         </div>
 

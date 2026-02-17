@@ -90,31 +90,38 @@ class SocketManager:
         """Broadcast current platform stats"""
         try:
             from backend.database import DatabaseService
-            from backend.database.models import Stock, Alert
+            from backend.database.models import Alert
             
             with DatabaseService() as db:
-                # Get latest stats
-                stocks = db.db.query(Stock).all()
+                # Get latest risk scores (not stocks directly)
+                risk_scores_df = db.get_latest_risk_scores()
                 
-                # High risk count
-                high_risk_count = sum(1 for s in stocks if s.risk_score and s.risk_score > 0.6)
+                if risk_scores_df.empty:
+                    log.warning("No risk scores available for broadcast")
+                    return
                 
-                # Recent alerts
+                # Count high risk stocks
+                high_risk_count = len(risk_scores_df[risk_scores_df['risk_score'] > 0.6])
+                
+                # Get recent alerts count
                 recent_alerts = db.db.query(Alert).order_by(
                     Alert.created_at.desc()
                 ).limit(5).all()
                 
                 stats = {
-                    'total_stocks': len(stocks),
+                    'total_stocks': len(risk_scores_df),
                     'high_risk_stocks': high_risk_count,
                     'recent_alerts_count': len(recent_alerts),
                     'timestamp': datetime.now().isoformat()
                 }
                 
                 self.socketio.emit('stats_update', stats)
+                log.info(f"✓ Broadcasted stats: {stats['total_stocks']} stocks, {stats['high_risk_stocks']} high risk")
                 
         except Exception as e:
             log.error(f"Error broadcasting stats: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def broadcast_risk_update(self, symbol: str, risk_score: float, risk_level: str):
         """Broadcast risk score update for specific stock"""

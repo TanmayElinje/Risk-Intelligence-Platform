@@ -1,3 +1,5 @@
+# 🔧 REPLACE YOUR ENTIRE models.py WITH THIS
+
 """
 SQLAlchemy Database Models
 """
@@ -11,6 +13,7 @@ from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 import os
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load .env from the project root
 from pathlib import Path
@@ -32,24 +35,55 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+# ==================== USER & AUTH MODELS ====================
+
 class User(Base):
-    """User model"""
+    """User model for authentication (MERGED VERSION)"""
     __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(80), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255))
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    email_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime)
-    is_active = Column(Boolean, default=True)
-    email_verified = Column(Boolean, default=False)
     
     # Relationships
     preferences = relationship("UserPreference", back_populates="user", uselist=False)
     watchlists = relationship("Watchlist", back_populates="user")
     alert_rules = relationship("AlertRule", back_populates="user")
     user_alerts = relationship("UserAlert", back_populates="user")
+    alert_preferences = relationship('UserAlertPreference', back_populates='user')
+    portfolio_holdings = relationship('PortfolioHolding', back_populates='user', cascade='all, delete-orphan')
+    portfolio_transactions = relationship('PortfolioTransaction', back_populates='user', cascade='all, delete-orphan')
+    email_alert_pref = relationship('EmailAlertPreference', back_populates='user', uselist=False, cascade='all, delete-orphan')
+    
+    def set_password(self, password):
+        """Hash and set password"""
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        """Check if password matches hash"""
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        """Convert to dictionary (exclude password)"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'full_name': self.full_name,
+            'is_active': self.is_active,
+            'is_admin': self.is_admin,
+            'email_verified': self.email_verified,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
 
 
 class UserPreference(Base):
@@ -68,6 +102,42 @@ class UserPreference(Base):
     # Relationships
     user = relationship("User", back_populates="preferences")
 
+
+class UserAlertPreference(Base):
+    """User's alert notification preferences"""
+    __tablename__ = 'user_alert_preferences'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    stock_id = Column(Integer, ForeignKey('stocks.id', ondelete='CASCADE'), nullable=True)
+    alert_type = Column(String(50))
+    is_enabled = Column(Boolean, default=True)
+    min_severity = Column(String(20), default='medium')
+    email_enabled = Column(Boolean, default=False)
+    push_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User', back_populates='alert_preferences')
+    stock = relationship('Stock')
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'stock_id': self.stock_id,
+            'stock_symbol': self.stock.symbol if self.stock else None,
+            'alert_type': self.alert_type,
+            'is_enabled': self.is_enabled,
+            'min_severity': self.min_severity,
+            'email_enabled': self.email_enabled,
+            'push_enabled': self.push_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# ==================== STOCK MODELS ====================
 
 class Stock(Base):
     """Stock model"""
@@ -159,14 +229,14 @@ class NewsArticle(Base):
     source = Column(String(100))
     headline = Column(Text, nullable=False)
     description = Column(Text)
-    content = Column(Text)  # ADD THIS LINE - Full article content
+    content = Column(Text)
     url = Column(String(500), unique=True)
     published_date = Column(DateTime)
     sentiment_label = Column(String(20))
     sentiment_score = Column(Numeric(5, 4))
     sentiment_confidence = Column(Numeric(5, 4))
-    authors = Column(Text)  # ADD THIS LINE - Comma-separated authors
-    top_image = Column(String(500))  # ADD THIS LINE - Article image URL
+    authors = Column(Text)
+    top_image = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationship
@@ -226,13 +296,15 @@ class Alert(Base):
     )
 
 
+# ==================== WATCHLIST MODELS ====================
+
 class Watchlist(Base):
-    """Watchlist model"""
+    """User watchlist model (MERGED VERSION)"""
     __tablename__ = 'watchlists'
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, default='My Watchlist')
     description = Column(Text)
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -240,7 +312,7 @@ class Watchlist(Base):
     
     # Relationships
     user = relationship("User", back_populates="watchlists")
-    stocks = relationship("WatchlistStock", back_populates="watchlist")
+    stocks = relationship("WatchlistStock", back_populates="watchlist", cascade="all, delete-orphan")
 
 
 class WatchlistStock(Base):
@@ -251,6 +323,7 @@ class WatchlistStock(Base):
     watchlist_id = Column(Integer, ForeignKey('watchlists.id', ondelete='CASCADE'))
     stock_id = Column(Integer, ForeignKey('stocks.id', ondelete='CASCADE'))
     added_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(String(500))
     
     # Relationships
     watchlist = relationship("Watchlist", back_populates="stocks")
@@ -260,6 +333,18 @@ class WatchlistStock(Base):
     __table_args__ = (
         UniqueConstraint('watchlist_id', 'stock_id', name='uix_watchlist_stock'),
     )
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            'id': self.id,
+            'watchlist_id': self.watchlist_id,
+            'stock_id': self.stock_id,
+            'stock_symbol': self.stock.symbol if self.stock else None,
+            'stock_name': self.stock.name if self.stock else None,
+            'added_at': self.added_at.isoformat() if self.added_at else None,
+            'notes': self.notes
+        }
 
 
 class AlertRule(Base):
@@ -315,6 +400,115 @@ class RiskHistory(Base):
     )
 
 
+# ==================== EMAIL ALERT PREFERENCES ====================
+
+class EmailAlertPreference(Base):
+    """User email alert preferences"""
+    __tablename__ = 'email_alert_preferences'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), unique=True, nullable=False)
+    email_alerts_enabled = Column(Boolean, default=False)
+    alert_email = Column(String(255))
+    high_risk_alerts = Column(Boolean, default=True)
+    medium_risk_alerts = Column(Boolean, default=False)
+    daily_digest = Column(Boolean, default=False)
+    watchlist_only = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User', back_populates='email_alert_pref')
+    
+    def to_dict(self):
+        return {
+            'email_alerts_enabled': self.email_alerts_enabled,
+            'alert_email': self.alert_email,
+            'high_risk_alerts': self.high_risk_alerts,
+            'medium_risk_alerts': self.medium_risk_alerts,
+            'daily_digest': self.daily_digest,
+            'watchlist_only': self.watchlist_only,
+        }
+
+
+# ==================== PORTFOLIO MODELS ====================
+
+class PortfolioHolding(Base):
+    """User portfolio holding model"""
+    __tablename__ = 'portfolio_holdings'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    symbol = Column(String(20), nullable=False, index=True)
+    quantity = Column(Numeric(20, 6), nullable=False)
+    purchase_price = Column(Numeric(20, 4), nullable=False)
+    purchase_date = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User', back_populates='portfolio_holdings')
+    
+    # Constraints
+    __table_args__ = (
+        UniqueConstraint('user_id', 'symbol', name='uix_portfolio_user_symbol'),
+        Index('idx_portfolio_user', 'user_id'),
+    )
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'symbol': self.symbol,
+            'quantity': float(self.quantity) if self.quantity else 0,
+            'purchase_price': float(self.purchase_price) if self.purchase_price else 0,
+            'purchase_date': self.purchase_date.isoformat() if self.purchase_date else None,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PortfolioTransaction(Base):
+    """Portfolio transaction history model"""
+    __tablename__ = 'portfolio_transactions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    symbol = Column(String(20), nullable=False, index=True)
+    transaction_type = Column(String(10), nullable=False)  # BUY or SELL
+    quantity = Column(Numeric(20, 6), nullable=False)
+    price = Column(Numeric(20, 4), nullable=False)
+    transaction_date = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User', back_populates='portfolio_transactions')
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_transaction_user', 'user_id'),
+        Index('idx_transaction_date', 'transaction_date'),
+    )
+    
+    def to_dict(self):
+        """Convert to dictionary"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'symbol': self.symbol,
+            'transaction_type': self.transaction_type,
+            'quantity': float(self.quantity) if self.quantity else 0,
+            'price': float(self.price) if self.price else 0,
+            'transaction_date': self.transaction_date.isoformat() if self.transaction_date else None,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
@@ -325,3 +519,5 @@ def drop_db():
     """Drop all database tables"""
     Base.metadata.drop_all(bind=engine)
     print("✓ Database tables dropped")
+
+

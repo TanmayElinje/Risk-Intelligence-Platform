@@ -194,39 +194,76 @@ class DatabaseService:
         log.info(f"✓ Saved {saved_count} new records, updated {updated_count} records")
     
     def get_latest_risk_scores(self) -> pd.DataFrame:
-        """Get latest risk scores for all stocks"""
+        """Get latest risk scores for all stocks with sentiment data"""
+        from datetime import datetime, timedelta
+        
         # Subquery to get latest date for each stock
         subquery = self.db.query(
             RiskScore.stock_id,
             func.max(RiskScore.date).label('max_date')
         ).group_by(RiskScore.stock_id).subquery()
         
-        # Join to get latest records
-        query = self.db.query(RiskScore).join(Stock).join(
-            subquery,
-            (RiskScore.stock_id == subquery.c.stock_id) &
-            (RiskScore.date == subquery.c.max_date)
-        ).order_by(RiskScore.risk_rank)
+        # Subquery to get average sentiment for last 30 days
+        thirty_days_ago = datetime.now().date() - timedelta(days=30)
+        
+        sentiment_subquery = self.db.query(
+            SentimentScore.stock_id,
+            func.avg(SentimentScore.avg_sentiment).label('avg_sentiment')
+        ).filter(
+            SentimentScore.date >= thirty_days_ago
+        ).group_by(SentimentScore.stock_id).subquery()
+        
+        # Main query with explicit select_from
+        query = (
+            self.db.query(
+                Stock.symbol,
+                RiskScore.date,
+                RiskScore.risk_score,
+                RiskScore.risk_level,
+                RiskScore.risk_rank,
+                RiskScore.volatility_21d,
+                RiskScore.max_drawdown,
+                RiskScore.liquidity_risk,
+                RiskScore.risk_drivers,
+                RiskScore.norm_volatility,
+                RiskScore.norm_drawdown,
+                RiskScore.norm_sentiment,
+                RiskScore.norm_liquidity,
+                sentiment_subquery.c.avg_sentiment
+            )
+            .select_from(RiskScore)  # ← Explicit FROM clause
+            .join(Stock, RiskScore.stock_id == Stock.id)
+            .join(
+                subquery,
+                (RiskScore.stock_id == subquery.c.stock_id) &
+                (RiskScore.date == subquery.c.max_date)
+            )
+            .outerjoin(
+                sentiment_subquery,
+                RiskScore.stock_id == sentiment_subquery.c.stock_id
+            )
+            .order_by(RiskScore.risk_rank)
+        )
         
         # Convert to DataFrame
         data = []
-        for record in query.all():
+        for row in query.all():
             data.append({
-                'symbol': record.stock.symbol,
-                'Date': record.date,
+                'symbol': row.symbol,
+                'Date': row.date,
                 'Close': None,  # Will need to fetch from market_data if needed
-                'risk_score': float(record.risk_score) if record.risk_score else None,
-                'risk_level': record.risk_level,
-                'risk_rank': record.risk_rank,
-                'volatility_21d': float(record.volatility_21d) if record.volatility_21d else None,
-                'max_drawdown': float(record.max_drawdown) if record.max_drawdown else None,
-                'avg_sentiment': 0,  # Will need to fetch from sentiment if needed
-                'liquidity_risk': float(record.liquidity_risk) if record.liquidity_risk else None,
-                'risk_drivers': record.risk_drivers,
-                'norm_volatility': float(record.norm_volatility) if record.norm_volatility else None,
-                'norm_drawdown': float(record.norm_drawdown) if record.norm_drawdown else None,
-                'norm_sentiment': float(record.norm_sentiment) if record.norm_sentiment else None,
-                'norm_liquidity': float(record.norm_liquidity) if record.norm_liquidity else None,
+                'risk_score': float(row.risk_score) if row.risk_score else None,
+                'risk_level': row.risk_level,
+                'risk_rank': row.risk_rank,
+                'volatility_21d': float(row.volatility_21d) if row.volatility_21d else None,
+                'max_drawdown': float(row.max_drawdown) if row.max_drawdown else None,
+                'avg_sentiment': float(row.avg_sentiment) if row.avg_sentiment else 0.0,  # ← FIXED!
+                'liquidity_risk': float(row.liquidity_risk) if row.liquidity_risk else None,
+                'risk_drivers': row.risk_drivers,
+                'norm_volatility': float(row.norm_volatility) if row.norm_volatility else None,
+                'norm_drawdown': float(row.norm_drawdown) if row.norm_drawdown else None,
+                'norm_sentiment': float(row.norm_sentiment) if row.norm_sentiment else None,
+                'norm_liquidity': float(row.norm_liquidity) if row.norm_liquidity else None,
             })
         
         return pd.DataFrame(data)

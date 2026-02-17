@@ -1,8 +1,7 @@
 """
 Flask API Application with WebSocket support
 """
-from flask import Flask
-from flask_cors import CORS
+from flask import Flask, request, jsonify
 from backend.utils import log, load_config
 from backend.websocket.socket_manager import socket_manager
 
@@ -13,21 +12,46 @@ def create_app():
     # Load configuration
     config = load_config()
     
-    # Enable CORS
-    CORS(app, resources={
-        r"/api/*": {"origins": "*"},
-        r"/socket.io/*": {"origins": "*"}
-    })
+    # Manual CORS handler for OPTIONS requests
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = jsonify({"status": "ok"})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+            response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+            return response, 200
+    
+    # Add CORS headers to all responses
+    @app.after_request
+    def after_request(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+        return response
     
     # Initialize WebSocket
     socket_manager.init_app(app)
     
     # Register Blueprint routes
     from backend.api.routes import api_bp
+    from backend.api.auth_routes import auth_bp
+    from backend.api.watchlist_routes import watchlist_bp
+    from backend.api.portfolio_routes import portfolio_bp
+    from backend.api.email_routes import email_bp
+    from backend.api.advanced_analytics_routes import advanced_bp
+    from backend.api.backtest_routes import backtest_bp
+    
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(watchlist_bp)
+    app.register_blueprint(portfolio_bp)
+    app.register_blueprint(email_bp)
+    app.register_blueprint(advanced_bp)
+    app.register_blueprint(backtest_bp)
     
     log.info("Flask app created successfully")
-    log.info("CORS enabled for all origins")
+    log.info("CORS enabled (manual handlers)")
     log.info("WebSocket enabled")
     log.info("API routes registered")
     

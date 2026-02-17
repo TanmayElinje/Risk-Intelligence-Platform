@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(npm run build:*)",
+      "Bash(git checkout:*)",
+      "Bash(npx prettier:*)",
+      "Bash(find:*)",
+      "Bash(xargs sed:*)",
+      "Bash(git clean:*)"
+    ]
+  }
+}
