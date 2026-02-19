@@ -1,0 +1,37 @@
+services:
+  # Backend API
+  - type: web
+    name: risk-intelligence-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT "backend.api.app:create_app()"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: risk-intelligence-db
+          property: connectionString
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+  # Frontend
+  - type: web
+    name: risk-intelligence-dashboard
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://risk-intelligence-api.onrender.com/api
+
+databases:
+  - name: risk-intelligence-db
+    plan: free
+    databaseName: risk_intelligence
