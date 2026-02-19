@@ -23,6 +23,7 @@ export const apiService = {
   
   // Stock details
   getStockDetails: (symbol) => api.get(`/stock/${symbol}`),
+  getStockExplanation: (symbol) => api.get(`/stock/${symbol}/explain`),
   
   // Alerts
   getAlerts: (params = {}) => api.get('/alerts', { params }),

@@ -1,0 +1,290 @@
+{
+  "AAPL": {
+    "current_vol": 0.33576834139620465,
+    "garch_forecast_30d": 0.301374220565537,
+    "vol_change": -0.034394120830667674,
+    "signal": "\u2193 DECREASING"
+  },
+  "ABNB": {
+    "current_vol": 0.3805970404170837,
+    "garch_forecast_30d": 0.45212188231091915,
+    "vol_change": 0.07152484189383546,
+    "signal": "\u2191 INCREASING"
+  },
+  "ADBE": {
+    "current_vol": 0.3798849020281429,
+    "garch_forecast_30d": 0.3597211287012341,
+    "vol_change": -0.020163773326908774,
+    "signal": "\u2193 DECREASING"
+  },
+  "ADI": {
+    "current_vol": 0.3030051508767326,
+    "garch_forecast_30d": 0.31547860694565144,
+    "vol_change": 0.012473456068918864,
+    "signal": "\u2192 STABLE"
+  },
+  "AMAT": {
+    "current_vol": 0.5732281500418293,
+    "garch_forecast_30d": 0.4712431684760637,
+    "vol_change": -0.10198498156576558,
+    "signal": "\u2193 DECREASING"
+  },
+  "AMD": {
+    "current_vol": 0.8668097200635778,
+    "garch_forecast_30d": 0.5355637902627537,
+    "vol_change": -0.3312459298008241,
+    "signal": "\u2193 DECREASING"
+  },
+  "AMZN": {
+    "current_vol": 0.34095397376781544,
+    "garch_forecast_30d": 0.36274109607544236,
+    "vol_change": 0.021787122307626916,
+    "signal": "\u2191 INCREASING"
+  },
+  "AVGO": {
+    "current_vol": 0.43697653487456484,
+    "garch_forecast_30d": 0.457774891362023,
+    "vol_change": 0.020798356487458147,
+    "signal": "\u2191 INCREASING"
+  },
+  "CDNS": {
+    "current_vol": 0.5830700212895901,
+    "garch_forecast_30d": 0.4637003835282723,
+    "vol_change": -0.11936963776131776,
+    "signal": "\u2193 DECREASING"
+  },
+  "COIN": {
+    "current_vol": 0.9931413374664594,
+    "garch_forecast_30d": 0.9637157953084602,
+    "vol_change": -0.029425542157999196,
+    "signal": "\u2193 DECREASING"
+  },
+  "CRM": {
+    "current_vol": 0.4473921841769873,
+    "garch_forecast_30d": 0.3667801833460738,
+    "vol_change": -0.08061200083091347,
+    "signal": "\u2193 DECREASING"
+  },
+  "CRWD": {
+    "current_vol": 0.5405883874979132,
+    "garch_forecast_30d": 0.5040215519507191,
+    "vol_change": -0.03656683554719409,
+    "signal": "\u2193 DECREASING"
+  },
+  "CSCO": {
+    "current_vol": 0.5545491531510127,
+    "garch_forecast_30d": 0.3484917182398422,
+    "vol_change": -0.2060574349111705,
+    "signal": "\u2193 DECREASING"
+  },
+  "DDOG": {
+    "current_vol": 0.807397144481144,
+    "garch_forecast_30d": 0.6021104512153722,
+    "vol_change": -0.20528669326577176,
+    "signal": "\u2193 DECREASING"
+  },
+  "DOCU": {
+    "current_vol": 0.567446287235371,
+    "garch_forecast_30d": 0.9942390099665598,
+    "vol_change": 0.42679272273118873,
+    "signal": "\u2191 INCREASING"
+  },
+  "FTNT": {
+    "current_vol": 0.42133698999573876,
+    "garch_forecast_30d": 0.49097610815533993,
+    "vol_change": 0.06963911815960117,
+    "signal": "\u2191 INCREASING"
+  },
+  "GOOGL": {
+    "current_vol": 0.21980222782724124,
+    "garch_forecast_30d": 0.2771431834176407,
+    "vol_change": 0.05734095559039948,
+    "signal": "\u2191 INCREASING"
+  },
+  "INTC": {
+    "current_vol": 0.9882584789900094,
+    "garch_forecast_30d": 0.5207000091245934,
+    "vol_change": -0.46755846986541605,
+    "signal": "\u2193 DECREASING"
+  },
+  "INTU": {
+    "current_vol": 0.5885862948491674,
+    "garch_forecast_30d": 0.5017104443910462,
+    "vol_change": -0.08687585045812118,
+    "signal": "\u2193 DECREASING"
+  },
+  "KLAC": {
+    "current_vol": 0.7628175382046685,
+    "garch_forecast_30d": 0.5133479029233101,
+    "vol_change": -0.24946963528135835,
+    "signal": "\u2193 DECREASING"
+  },
+  "LRCX": {
+    "current_vol": 0.6233463947850634,
+    "garch_forecast_30d": 0.5105467151224266,
+    "vol_change": -0.11279967966263682,
+    "signal": "\u2193 DECREASING"
+  },
+  "MCHP": {
+    "current_vol": 0.43946363185109416,
+    "garch_forecast_30d": 0.4203288014492526,
+    "vol_change": -0.01913483040184155,
+    "signal": "\u2192 STABLE"
+  },
+  "META": {
+    "current_vol": 0.4893758865701588,
+    "garch_forecast_30d": 0.4758728331935043,
+    "vol_change": -0.013503053376654472,
+    "signal": "\u2192 STABLE"
+  },
+  "MRVL": {
+    "current_vol": 0.4426299044228197,
+    "garch_forecast_30d": 0.5834511523942302,
+    "vol_change": 0.1408212479714105,
+    "signal": "\u2191 INCREASING"
+  },
+  "MSFT": {
+    "current_vol": 0.4821071541369358,
+    "garch_forecast_30d": 0.34928870543844615,
+    "vol_change": -0.13281844869848963,
+    "signal": "\u2193 DECREASING"
+  },
+  "MU": {
+    "current_vol": 0.7358792251620176,
+    "garch_forecast_30d": 0.671036027309225,
+    "vol_change": -0.06484319785279269,
+    "signal": "\u2193 DECREASING"
+  },
+  "NET": {
+    "current_vol": 0.7836727626000642,
+    "garch_forecast_30d": 0.6337363057571298,
+    "vol_change": -0.14993645684293444,
+    "signal": "\u2193 DECREASING"
+  },
+  "NFLX": {
+    "current_vol": 0.30169164140765015,
+    "garch_forecast_30d": 0.36853276993399664,
+    "vol_change": 0.0668411285263465,
+    "signal": "\u2191 INCREASING"
+  },
+  "NOW": {
+    "current_vol": 0.6451259744808456,
+    "garch_forecast_30d": 0.5026165698111327,
+    "vol_change": -0.14250940466971296,
+    "signal": "\u2193 DECREASING"
+  },
+  "NVDA": {
+    "current_vol": 0.4252450555448814,
+    "garch_forecast_30d": 0.4779022640541114,
+    "vol_change": 0.05265720850923,
+    "signal": "\u2191 INCREASING"
+  },
+  "NXPI": {
+    "current_vol": 0.4452821596075792,
+    "garch_forecast_30d": 0.4077636273922833,
+    "vol_change": -0.03751853221529594,
+    "signal": "\u2193 DECREASING"
+  },
+  "OKTA": {
+    "current_vol": 0.5056074019514661,
+    "garch_forecast_30d": 0.47089828780916765,
+    "vol_change": -0.03470911414229849,
+    "signal": "\u2193 DECREASING"
+  },
+  "ORCL": {
+    "current_vol": 0.6248812111298563,
+    "garch_forecast_30d": 0.5880867049800099,
+    "vol_change": -0.03679450614984636,
+    "signal": "\u2193 DECREASING"
+  },
+  "PANW": {
+    "current_vol": 0.4798212052060847,
+    "garch_forecast_30d": 0.41334275259768344,
+    "vol_change": -0.06647845260840124,
+    "signal": "\u2193 DECREASING"
+  },
+  "QCOM": {
+    "current_vol": 0.3836433252191931,
+    "garch_forecast_30d": 0.3762879588632247,
+    "vol_change": -0.007355366355968396,
+    "signal": "\u2192 STABLE"
+  },
+  "QRVO": {
+    "current_vol": 0.351054471849139,
+    "garch_forecast_30d": 0.4270131830777729,
+    "vol_change": 0.0759587112286339,
+    "signal": "\u2191 INCREASING"
+  },
+  "RBLX": {
+    "current_vol": 0.8900946147418429,
+    "garch_forecast_30d": 0.6012093540082062,
+    "vol_change": -0.28888526073363674,
+    "signal": "\u2193 DECREASING"
+  },
+  "SHOP": {
+    "current_vol": 0.7984675714569535,
+    "garch_forecast_30d": 0.704060210670874,
+    "vol_change": -0.09440736078607948,
+    "signal": "\u2193 DECREASING"
+  },
+  "SNOW": {
+    "current_vol": 0.667901105498476,
+    "garch_forecast_30d": 0.581592827520687,
+    "vol_change": -0.08630827797778906,
+    "signal": "\u2193 DECREASING"
+  },
+  "SNPS": {
+    "current_vol": 0.5270699473911586,
+    "garch_forecast_30d": 0.41837214640589077,
+    "vol_change": -0.10869780098526788,
+    "signal": "\u2193 DECREASING"
+  },
+  "SWKS": {
+    "current_vol": 0.45114350784609897,
+    "garch_forecast_30d": 0.40391767959853525,
+    "vol_change": -0.04722582824756372,
+    "signal": "\u2193 DECREASING"
+  },
+  "TEAM": {
+    "current_vol": 0.6782979338724379,
+    "garch_forecast_30d": 0.5728179843232447,
+    "vol_change": -0.10547994954919315,
+    "signal": "\u2193 DECREASING"
+  },
+  "TSLA": {
+    "current_vol": 0.39938268697437224,
+    "garch_forecast_30d": 0.497573240078418,
+    "vol_change": 0.09819055310404579,
+    "signal": "\u2191 INCREASING"
+  },
+  "TXN": {
+    "current_vol": 0.3994346491673732,
+    "garch_forecast_30d": 0.3453189050994793,
+    "vol_change": -0.05411574406789388,
+    "signal": "\u2193 DECREASING"
+  },
+  "UBER": {
+    "current_vol": 0.32139361613100553,
+    "garch_forecast_30d": 0.37828812187152205,
+    "vol_change": 0.05689450574051652,
+    "signal": "\u2191 INCREASING"
+  },
+  "WDAY": {
+    "current_vol": 0.5557376464125324,
+    "garch_forecast_30d": 0.3979969062980474,
+    "vol_change": -0.15774074011448502,
+    "signal": "\u2193 DECREASING"
+  },
+  "ZM": {
+    "current_vol": 0.5466558714220459,
+    "garch_forecast_30d": 0.3967934952065926,
+    "vol_change": -0.14986237621545329,
+    "signal": "\u2193 DECREASING"
+  },
+  "ZS": {
+    "current_vol": 0.5245988658244743,
+    "garch_forecast_30d": 0.5402757359925214,
+    "vol_change": 0.015676870168047086,
+    "signal": "\u2192 STABLE"
+  }
+}

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  ReferenceLine, ReferenceDot
+  ReferenceLine, ReferenceDot, Cell
 } from 'recharts';
 import { Play, History, TrendingDown, BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { getToken } from '../services/authService';

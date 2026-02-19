@@ -40,3 +40,6 @@ Thumbs.db
 
 # Data folders
 backend/data/vector_db/
+
+.joblib
+.keras

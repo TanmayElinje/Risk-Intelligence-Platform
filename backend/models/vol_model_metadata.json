@@ -1,0 +1,22 @@
+{
+  "garch": {
+    "model": "GARCH(1,1)",
+    "mae": 0.14033673847468492,
+    "rmse": 0.18134802444103013,
+    "directional_accuracy": 0.7878787878787878
+  },
+  "lstm": {
+    "model": "LSTM (64-32-16)",
+    "mae": 0.12760676167438553,
+    "rmse": 0.17687284138773993,
+    "directional_accuracy": 0.6330511288180611,
+    "input_window": 60,
+    "features": [
+      "log_return",
+      "realized_vol_21d",
+      "volume_ratio",
+      "rsi"
+    ]
+  },
+  "generated_at": "2026-02-18T14:12:30.277364"
+}

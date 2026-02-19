@@ -191,6 +191,39 @@ def get_stock_details(symbol):
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+    
+@api_bp.route('/stock/<symbol>/explain', methods=['GET'])
+def get_stock_explanation(symbol):
+    """Get SHAP-based risk explanation for a stock"""
+    try:
+        from backend.services.ml_risk_scorer import MLRiskScorer
+        scorer = MLRiskScorer()
+        
+        explanation = scorer.get_stock_explanation(symbol.upper())
+        vol_forecast = scorer.get_vol_forecast(symbol.upper())
+        
+        if not explanation:
+            return jsonify({'error': f'No explanation available for {symbol}'}), 404
+        
+        result = {
+            'symbol': symbol.upper(),
+            'risk_probability': explanation['risk_probability'],
+            'risk_level': explanation['risk_level'],
+            'risk_drivers_up': explanation['risk_drivers_up'],
+            'risk_drivers_down': explanation['risk_drivers_down'],
+            'top_features': explanation.get('top_features', {}),
+            'shap_base': explanation.get('shap_base', 0),
+            'model_type': 'XGBoost (AUC=0.73)',
+        }
+        
+        if vol_forecast:
+            result['vol_forecast'] = vol_forecast
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        log.error(f"Error in get_stock_explanation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @api_bp.route('/alerts', methods=['GET'])
 def get_alerts():

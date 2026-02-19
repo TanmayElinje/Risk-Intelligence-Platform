@@ -14,6 +14,9 @@ const StockDetails = () => {
   const [ragQuery, setRagQuery] = useState('');
   const [ragResponse, setRagResponse] = useState(null);
   const [ragLoading, setRagLoading] = useState(false);
+  const [explanation, setExplanation] = useState(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [showExplain, setShowExplain] = useState(false);
 
   useEffect(() => {
     loadStockData();
@@ -34,6 +37,24 @@ const StockDetails = () => {
       toast.error('Failed to load stock data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchExplanation = async () => {
+    if (explanation) {
+      setShowExplain(!showExplain);
+      return;
+    }
+    try {
+      setExplainLoading(true);
+      const res = await apiService.getStockExplanation(symbol);
+      setExplanation(res.data);
+      setShowExplain(true);
+    } catch (error) {
+      console.error('Failed to fetch explanation:', error);
+      toast.error('Risk explanation not available');
+    } finally {
+      setExplainLoading(false);
     }
   };
 
@@ -150,6 +171,117 @@ const StockDetails = () => {
           <h3 className="font-semibold mb-2">Risk Drivers:</h3>
           <p className="text-gray-700">{stockData.risk_drivers}</p>
         </div>
+
+        {/* Explain Risk Button */}
+        <div className="mt-4">
+          <button
+            onClick={fetchExplanation}
+            disabled={explainLoading}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {explainLoading ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                Loading...
+              </>
+            ) : (
+              <>
+                🧠 {showExplain ? 'Hide' : 'Why This Risk Score?'}
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* SHAP Explanation Panel */}
+        {showExplain && explanation && (
+          <div className="mt-4 border border-purple-200 bg-purple-50 rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">🧠</span>
+              <h3 className="font-bold text-purple-900">ML Model Explanation (SHAP)</h3>
+              <span className="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full ml-auto">
+                {explanation.model_type}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Risk Drivers UP */}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <h4 className="font-semibold text-red-800 mb-2">↑ Pushing Risk UP</h4>
+                <div className="space-y-1">
+                  {explanation.risk_drivers_up.split(', ').map((driver, i) => (
+                    <div key={i} className="text-sm text-red-700 flex items-center gap-1">
+                      <span className="text-red-500">▲</span> {driver}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Risk Drivers DOWN */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <h4 className="font-semibold text-green-800 mb-2">↓ Pushing Risk DOWN</h4>
+                <div className="space-y-1">
+                  {explanation.risk_drivers_down.split(', ').map((driver, i) => (
+                    <div key={i} className="text-sm text-green-700 flex items-center gap-1">
+                      <span className="text-green-500">▼</span> {driver}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Feature Contributions */}
+            {explanation.top_features && Object.keys(explanation.top_features).length > 0 && (
+              <div className="mb-3">
+                <h4 className="font-semibold text-purple-900 mb-2">Top Feature Contributions</h4>
+                <div className="space-y-1.5">
+                  {Object.entries(explanation.top_features)
+                    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+                    .slice(0, 6)
+                    .map(([feat, val]) => (
+                      <div key={feat} className="flex items-center gap-2">
+                        <span className="text-xs font-mono w-40 truncate text-gray-600">{feat}</span>
+                        <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden relative">
+                          <div
+                            className={`h-full rounded-full ${val > 0 ? 'bg-red-400' : 'bg-green-400'}`}
+                            style={{
+                              width: `${Math.min(Math.abs(val) * 30, 100)}%`,
+                              marginLeft: val < 0 ? 'auto' : undefined,
+                            }}
+                          ></div>
+                        </div>
+                        <span className={`text-xs font-mono w-16 text-right ${val > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {val > 0 ? '+' : ''}{val.toFixed(3)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Volatility Forecast */}
+            {explanation.vol_forecast && (
+              <div className="mt-3 pt-3 border-t border-purple-200">
+                <h4 className="font-semibold text-purple-900 mb-1">Volatility Forecast (GARCH)</h4>
+                <div className="flex items-center gap-4 text-sm">
+                  <span>Current: <strong>{(explanation.vol_forecast.current_vol * 100).toFixed(1)}%</strong></span>
+                  <span>→</span>
+                  <span>Forecast (30d): <strong>{(explanation.vol_forecast.garch_forecast_30d * 100).toFixed(1)}%</strong></span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    explanation.vol_forecast.signal?.includes('INCREASING') ? 'bg-red-100 text-red-700' :
+                    explanation.vol_forecast.signal?.includes('DECREASING') ? 'bg-green-100 text-green-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {explanation.vol_forecast.signal}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-purple-600 mt-3">
+              SHAP values show how each feature contributes to this stock's risk score relative to the average stock.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Risk Components Radar */}

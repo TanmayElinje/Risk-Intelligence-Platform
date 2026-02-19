@@ -1,70 +1,152 @@
 # Financial Risk Intelligence Platform
 
-AI-powered multi-agent system for real-time financial risk monitoring, combining market data from Yahoo Finance, FinBERT news sentiment analysis, explainable RAG-based insights, and an interactive React dashboard.
+AI-powered stock risk monitoring platform with ML-based risk classification (XGBoost, AUC 0.79), SHAP explainability, GARCH/LSTM volatility forecasting, FinBERT sentiment analysis, and a RAG-powered AI assistant — built with React, Flask, and PostgreSQL.
 
-## Features
+## Key Results
 
-### Core Platform
-- **Multi-Agent Architecture** — 5 specialized agents (Market Data, Sentiment, RAG, Risk Scoring, Alert) working together to assess stock risk
-- **Real-Time Risk Monitoring** — Track 50 US tech stocks with composite risk scores updated from live Yahoo Finance data
-- **News Sentiment Analysis** — FinBERT-powered sentiment scoring on 400+ real news articles scraped from Yahoo Finance with full article content extraction
-- **Explainable AI** — RAG-based explanations using FAISS vector search + Ollama LLM (llama3) to explain why stocks are flagged as high risk
-- **AI Financial Assistant** — Chatbot that answers any finance question, with access to portfolio risk data and real news when relevant. Includes domain guardrails
-- **PostgreSQL Database** — Full relational database with stocks, market data, risk scores, news, sentiment, alerts, portfolio, and watchlist tables
-
-### Dashboard & Analytics
-- **Interactive Dashboard** — Real-time risk overview with stats cards, risk score table, live ticker, and alert feed
-- **Portfolio Management** — Add/remove holdings, track portfolio-level risk metrics
-- **Watchlist** — Save and monitor stocks of interest
-- **Stock Comparison** — Side-by-side comparison of multiple stocks across risk metrics
-- **Historical Data** — Interactive price charts with technical indicators
-- **Advanced Analytics** — Correlation matrix, Monte Carlo simulation, Value at Risk (VaR), and portfolio optimization (Markowitz efficient frontier)
-- **Backtesting Engine** — Test 4 strategies (Buy & Hold, Moving Average Crossover, Risk-Based, Mean Reversion) against historical data with equity curves, trade logs, and performance metrics (Sharpe, Sortino, max drawdown, win rate)
-- **Email Alerts** — Configurable email digest for risk alerts (daily/weekly/threshold-based)
-- **Data Export** — Export risk data to CSV/JSON with filtering
-
-### Data Pipeline
-- **Real Market Data** — `yf.download()` bulk fetching for 50 stocks (1 year of OHLCV data)
-- **Real News** — `yf.Search()` per-stock news + BeautifulSoup full article scraping
-- **FinBERT Sentiment** — Enhanced analysis: headline (40%) + full content (60%) weighted scoring
-- **Risk Scoring** — Composite score from volatility (40%), drawdown (30%), sentiment (20%), liquidity (10%)
-- **RAG Knowledge Base** — FAISS vector store built from 400+ real articles for contextual explanations
+| Component | Model/Method | Metric | Result |
+|-----------|-------------|--------|--------|
+| Risk Classifier | XGBoost (34 features) | AUC-ROC | **0.79** |
+| Risk Classifier | 5-Fold Time-Series CV | CV AUC | **0.82 ± 0.05** |
+| Explainability | SHAP TreeExplainer | Stocks Explained | **48/48** |
+| Vol Forecast | GARCH(1,1) | Directional Accuracy | **79%** |
+| Vol Forecast | LSTM (64→32→16) | MAE | **0.128** |
+| Sentiment | FinBERT | Articles Analyzed | **400+** |
+| AI Assistant | Groq llama-3.3-70B | Streaming + RAG | ✓ |
 
 ## Architecture
 
 ```
-Yahoo Finance API ──→ Market Data Agent ──→ Risk Features
-                                              ↓
-Yahoo Finance News ──→ News Fetcher ──→ FinBERT Sentiment Agent
-                                              ↓
-                                      Risk Scoring Agent ──→ Risk Scores
-                                              ↓
-FAISS Vector DB ←── RAG Agent ←── Alert Agent ──→ Alerts + Explanations
-                                              ↓
-PostgreSQL ←──────────────────────────→ Flask API ──→ React Dashboard
+                    ┌──────────────────────────────────────┐
+                    │          DATA SOURCES                 │
+                    │  Yahoo Finance API · News Scraping    │
+                    └──────────────┬───────────────────────┘
+                                   │
+                    ┌──────────────▼───────────────────────┐
+                    │        DATA PIPELINE                  │
+                    │  yf.download() · BeautifulSoup        │
+                    │  48 stocks · 5yr OHLCV · 400+ articles│
+                    └──────────────┬───────────────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              │                    │                     │
+    ┌─────────▼──────┐  ┌─────────▼──────┐  ┌──────────▼─────┐
+    │ Feature Engine  │  │ FinBERT NLP    │  │ FAISS Vector   │
+    │ 34 features     │  │ Sentiment      │  │ Store (RAG)    │
+    │ Technical +     │  │ Headline +     │  │ 400+ articles  │
+    │ Cross-sectional │  │ Content        │  │ + embeddings   │
+    └─────────┬──────┘  └─────────┬──────┘  └──────────┬─────┘
+              │                    │                     │
+    ┌─────────▼──────────────────────────────────────────▼─────┐
+    │                    ML MODELS                              │
+    │  XGBoost Risk Classifier (AUC 0.79)                      │
+    │  SHAP Explainability (per-stock feature contributions)   │
+    │  GARCH(1,1) Volatility Forecasting (79% directional)     │
+    │  LSTM Volatility Forecasting (MAE 0.128)                 │
+    └─────────┬────────────────────────────────────────────────┘
+              │
+    ┌─────────▼──────────────────────────────────────────┐
+    │              BACKEND (Flask + PostgreSQL)            │
+    │  REST API · WebSocket · Groq LLM · RAG Agent        │
+    └─────────┬──────────────────────────────────────────┘
+              │
+    ┌─────────▼──────────────────────────────────────────┐
+    │              FRONTEND (React + Recharts)             │
+    │  Dashboard · SHAP Explanations · AI Chat · Alerts   │
+    └────────────────────────────────────────────────────┘
 ```
 
-### Agents
-1. **MarketDataAgent** — Computes volatility (21d/60d), max drawdown, beta, Sharpe ratio, liquidity risk, returns
-2. **SentimentAgent** — FinBERT-based sentiment analysis with enhanced headline + content weighting
-3. **NewsRAGAgent** — FAISS vector store + Ollama LLM for generating contextual explanations
-4. **RiskScoringAgent** — Normalizes and combines features into a 0-1 composite risk score with risk level classification (High/Medium/Low)
-5. **AlertAgent** — Detects high-risk stocks and sudden risk spikes, generates RAG-powered explanations
+## Features
+
+### ML & Data Science
+- **XGBoost Risk Classifier** — Predicts high-volatility regimes using 34 engineered features. Trained on 5 years of data across 48 stocks with time-series aware train/test split. AUC-ROC 0.79, CV AUC 0.82.
+- **SHAP Explainability** — Per-stock waterfall explanations showing exactly which features drive each risk score (e.g., "ATR pushed risk up +2.44, vol_change pushed risk down -0.20"). Critical for regulatory compliance (SR 11-7, Basel III).
+- **GARCH Volatility Forecasting** — Per-stock GARCH(1,1) models with rolling backtest. 79% directional accuracy predicting whether volatility will increase or decrease.
+- **LSTM Volatility Forecasting** — Deep learning model on 60-day sliding windows of 4 features. Cross-sectional training across all stocks. MAE 0.128.
+- **FinBERT Sentiment Analysis** — Headline (40%) + full article content (60%) weighted sentiment scoring on 400+ scraped news articles.
+- **Automated Retraining** — Single-command retrain script that runs the full ML pipeline (data → features → XGBoost → SHAP → GARCH) to keep scores calibrated.
+
+### Platform
+- **Multi-Agent Architecture** — 5 specialized agents (Market Data, Sentiment, RAG, Risk Scoring, Alert)
+- **AI Financial Assistant** — Groq llama-3.3-70B with streaming responses, conversation memory, multi-stock comparison, sentiment-aware answers, and follow-up suggestions
+- **RAG Knowledge Base** — FAISS vector store + real news articles for grounded explanations
+- **Interactive Dashboard** — Risk overview, portfolio management, watchlist, stock comparison, historical charts
+- **Advanced Analytics** — Correlation matrix, Monte Carlo simulation, Value at Risk, Markowitz optimization
+- **Backtesting Engine** — 4 strategies (Buy & Hold, MA Crossover, Risk-Based, Mean Reversion) with equity curves and performance metrics
+- **"Why This Risk Score?" Button** — Click on any stock to see SHAP-based feature contributions + volatility forecast
+- **Email Alerts** — Configurable risk alert digests
 
 ## Tech Stack
 
-**Backend:** Python 3.11+, Flask, SQLAlchemy, PostgreSQL, Pandas, NumPy, yfinance, BeautifulSoup, FinBERT (transformers + PyTorch), LangChain, FAISS, Ollama/llama3, Flask-SocketIO
+| Layer | Technologies |
+|-------|-------------|
+| ML/DS | XGBoost, scikit-learn, SHAP, arch (GARCH), TensorFlow/Keras (LSTM) |
+| NLP | FinBERT (transformers + PyTorch), LangChain, FAISS |
+| LLM | Groq API (llama-3.3-70B), Ollama (fallback) |
+| Backend | Python 3.11+, Flask, SQLAlchemy, PostgreSQL |
+| Frontend | React 18, Vite, TailwindCSS, Recharts |
+| Data | yfinance, BeautifulSoup, Pandas, NumPy |
 
-**Frontend:** React 18, Vite, TailwindCSS, Recharts, Lucide React, React Router
+## Project Structure
 
-## Prerequisites
+```
+risk-intelligence-platform/
+├── backend/
+│   ├── agents/                    # Multi-agent system
+│   │   ├── market_agent.py        # Market feature computation
+│   │   ├── sentiment_agent.py     # FinBERT sentiment analysis
+│   │   ├── rag_agent.py           # RAG explanations (FAISS + LLM)
+│   │   ├── risk_agent.py          # ML risk scoring (XGBoost + fallback)
+│   │   └── alert_agent.py         # Alert detection + notifications
+│   ├── api/
+│   │   ├── app.py                 # Flask application
+│   │   ├── routes.py              # API endpoints + SHAP explain
+│   │   ├── backtest_routes.py     # Backtesting engine
+│   │   └── portfolio_routes.py    # Portfolio & watchlist
+│   ├── models/                    # Trained ML artifacts
+│   │   ├── risk_classifier.joblib # XGBoost model
+│   │   ├── feature_list.joblib    # 34 feature names
+│   │   ├── shap_explanations.json # Per-stock SHAP explanations
+│   │   ├── vol_forecasts.json     # GARCH volatility forecasts
+│   │   └── model_metadata.json    # Training metrics & config
+│   ├── services/
+│   │   ├── ml_risk_scorer.py      # ML model inference + SHAP scoring
+│   │   └── groq_client.py         # Groq LLM client
+│   ├── scrapers/
+│   │   ├── yfinance_collector.py  # Stock data (yf.download)
+│   │   └── news_fetcher.py        # News scraping + FinBERT
+│   ├── database/
+│   │   ├── models.py              # SQLAlchemy ORM models
+│   │   └── db_service.py          # Database service layer
+│   └── scripts/
+│       ├── refresh_real_data.py   # Daily data refresh pipeline
+│       ├── retrain_ml_model.py    # ML retrain (weekly/monthly)
+│       └── rebuild_rag.py         # Rebuild FAISS vector store
+├── frontend/
+│   └── src/
+│       ├── pages/
+│       │   ├── Dashboard.jsx      # Main dashboard
+│       │   ├── StockDetails.jsx   # Stock detail + SHAP explain button
+│       │   ├── RAGChat.jsx        # AI assistant (streaming)
+│       │   ├── Backtesting.jsx    # Strategy backtesting
+│       │   └── ...
+│       └── services/
+│           └── api.js             # API client
+├── notebooks/
+│   ├── 01_risk_classification_model.ipynb  # Phase 1: XGBoost (AUC 0.79)
+│   ├── 02_shap_explainability.ipynb        # Phase 2: SHAP analysis
+│   ├── 03_volatility_forecasting.ipynb     # Phase 3: GARCH vs LSTM
+│   └── 04_eda_documentation.ipynb          # Phase 4: Complete EDA
+├── requirements.txt
+└── README.md
+```
 
+## Installation
+
+### Prerequisites
 - Python 3.11+
 - Node.js 18+
 - PostgreSQL 14+
-- Ollama with llama3 model — [Install Ollama](https://ollama.ai)
-
-## Installation
 
 ### 1. Clone & Setup Backend
 
@@ -72,44 +154,58 @@ PostgreSQL ←──────────────────────
 git clone https://github.com/yourusername/risk-intelligence-platform.git
 cd risk-intelligence-platform
 
-# Create and activate virtual environment
 python -m venv venv
 # Windows:
 venv\Scripts\activate
 # macOS/Linux:
 source venv/bin/activate
 
-# Install dependencies
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment
 
 ```bash
-# Copy and edit environment file
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` with your PostgreSQL credentials:
+Edit `backend/.env`:
 ```
 DATABASE_URL=postgresql://username:password@localhost:5432/risk_intelligence
+GROQ_API_KEY=gsk_...    # Get from https://console.groq.com/keys
 SECRET_KEY=your-secret-key
 ```
 
 ### 3. Setup Database
 
 ```bash
-# Create the PostgreSQL database, then:
 python -m backend.database.init_db
 ```
 
-### 4. Install Ollama & Pull Model
+### 4. Train ML Models
 
 ```bash
-ollama pull llama3
+# Automated retrain (recommended) — runs full pipeline in ~20 seconds
+python -m backend.scripts.retrain_ml_model
+
+# Or run notebooks manually for detailed analysis
+jupyter notebook notebooks/01_risk_classification_model.ipynb
 ```
 
-### 5. Setup Frontend
+### 5. Populate Data & Run Pipeline
+
+```bash
+# Fetch real stock data + news + sentiment
+python -m backend.scripts.refresh_real_data
+
+# Build RAG knowledge base
+python -m backend.scripts.rebuild_rag
+
+# Run full pipeline (features, ML risk scores, alerts)
+python -m backend.main
+```
+
+### 6. Setup Frontend
 
 ```bash
 cd frontend
@@ -118,145 +214,78 @@ npm install
 
 ## Usage
 
-### Populate Real Data
-
 ```bash
-# Fetch real stock data + news + sentiment + risk scores (full pipeline)
-python -m backend.scripts.refresh_real_data
-
-# Options:
-#   --period 3mo          Shorter data range (default: 1y)
-#   --symbols AAPL,MSFT   Specific stocks only
-#   --skip-news           Skip news fetching
-#   --skip-risk           Skip risk recomputation
-#   --skip-alerts         Skip alert generation
-#   --with-metadata       Also fetch stock names/sectors from Yahoo
-
-# Rebuild RAG vector store (after news refresh)
-python -m backend.scripts.rebuild_rag
-```
-
-### Run the Platform
-
-```bash
-# Terminal 1: Start Ollama
-ollama serve
-
-# Terminal 2: Start Flask API
+# Terminal 1: Start Flask API
 python -m backend.api.app
 
-# Terminal 3: Start React frontend
+# Terminal 2: Start React frontend
 cd frontend
 npm run dev
 ```
 
-Access the dashboard at: `http://localhost:5173`
+Access at: `http://localhost:5173`
 
-### Run Full Pipeline
+### Daily Operations
 
 ```bash
-# Runs all steps: data verification, market features, sentiment, RAG, risk scores, alerts
+# Daily: fetch new data + recompute scores
+python -m backend.scripts.refresh_real_data
+python -m backend.main
+
+# Weekly/Monthly: retrain ML model with latest data
+python -m backend.scripts.retrain_ml_model
 python -m backend.main
 ```
 
-## Project Structure
+## Notebooks
 
-```
-risk-intelligence-platform/
-├── backend/
-│   ├── agents/                # Multi-agent system
-│   │   ├── market_agent.py    # Market feature computation
-│   │   ├── sentiment_agent.py # FinBERT sentiment analysis
-│   │   ├── rag_agent.py       # RAG explanations (FAISS + LLM)
-│   │   ├── risk_agent.py      # Composite risk scoring
-│   │   └── alert_agent.py     # Alert detection + notifications
-│   ├── api/
-│   │   ├── app.py             # Flask application factory
-│   │   ├── routes.py          # API endpoints + AI assistant
-│   │   ├── auth_routes.py     # Authentication (JWT)
-│   │   ├── email_routes.py    # Email alert configuration
-│   │   ├── backtest_routes.py # Backtesting engine API
-│   │   └── portfolio_routes.py# Portfolio & watchlist API
-│   ├── configs/
-│   │   └── config.yaml        # Agent params, stock list, weights
-│   ├── database/
-│   │   ├── models.py          # SQLAlchemy models
-│   │   ├── db_service.py      # Database service layer
-│   │   └── init_db.py         # DB initialization & seeding
-│   ├── scrapers/
-│   │   ├── yfinance_collector.py  # Stock data (yf.download)
-│   │   ├── news_fetcher.py        # News (yf.Search + scraping)
-│   │   └── selenium_news_scraper.py # Alternative Selenium scraper
-│   ├── scripts/
-│   │   ├── refresh_real_data.py   # Full data refresh pipeline
-│   │   └── rebuild_rag.py        # Rebuild FAISS vector store
-│   ├── data/
-│   │   ├── raw/               # Raw parquet files
-│   │   ├── processed/         # Processed CSVs
-│   │   └── vector_db/         # FAISS index
-│   ├── websocket/             # Real-time WebSocket server
-│   └── main.py                # Pipeline orchestrator
-├── frontend/
-│   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   │   ├── Layout.jsx     # Main layout with nav dropdown
-│   │   │   ├── LiveRiskTicker.jsx  # Scrolling risk ticker
-│   │   │   ├── RiskScoreTable.jsx  # Sortable risk table
-│   │   │   └── ...
-│   │   ├── pages/
-│   │   │   ├── Dashboard.jsx       # Main dashboard
-│   │   │   ├── Portfolio.jsx       # Portfolio management
-│   │   │   ├── Watchlist.jsx       # Stock watchlist
-│   │   │   ├── StockComparison.jsx # Side-by-side comparison
-│   │   │   ├── HistoricalData.jsx  # Price charts
-│   │   │   ├── AdvancedAnalytics.jsx # Correlation, Monte Carlo, VaR
-│   │   │   ├── Backtesting.jsx     # Strategy backtesting
-│   │   │   ├── RAGChat.jsx         # AI assistant chat
-│   │   │   ├── Alerts.jsx          # Alert management
-│   │   │   ├── Settings.jsx        # Email & notification settings
-│   │   │   └── ...
-│   │   ├── contexts/          # Auth context
-│   │   └── hooks/             # WebSocket hooks
-│   └── package.json
-├── requirements.txt
-└── README.md
-```
+| Notebook | Description | Key Result |
+|----------|-------------|------------|
+| `01_risk_classification_model.ipynb` | XGBoost risk classifier with 34 features. Model iteration from drawdown target (AUC 0.56) to volatility target (AUC 0.79). Includes EDA, feature engineering, 3-model comparison, time-series CV. | AUC 0.79, CV 0.82 |
+| `02_shap_explainability.ipynb` | SHAP analysis: global importance, per-stock waterfalls, dependence plots, feature heatmap, force plots. Exports explanations for app integration. | 48 stocks explained |
+| `03_volatility_forecasting.ipynb` | GARCH(1,1) vs LSTM comparison with rolling backtest. Per-stock forecasts and current portfolio volatility outlook. | GARCH 79% dir. acc. |
+| `04_eda_documentation.ipynb` | Complete EDA: returns, fat tails, volatility clustering, correlations, drawdowns, risk-return tradeoff, sector analysis, model summary. | Full documentation |
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/stats` | Overall risk statistics |
-| GET | `/api/risk-scores` | All stock risk scores |
-| GET | `/api/alerts` | Recent alerts |
-| GET | `/api/market-features/<symbol>` | Market features for a stock |
-| GET | `/api/risk-history` | Historical risk trends |
+| GET | `/api/risk-scores` | All stock risk scores (ML-powered) |
+| GET | `/api/stock/<symbol>` | Stock detail with risk data |
+| GET | `/api/stock/<symbol>/explain` | **SHAP explanation + vol forecast** |
 | POST | `/api/query-rag` | AI assistant query |
+| POST | `/api/query-rag-stream` | Streaming AI assistant |
+| GET | `/api/alerts` | Recent alerts |
 | POST | `/api/backtest/run` | Run strategy backtest |
-| GET | `/api/backtest/historical-analysis/<symbol>` | Historical analysis |
-| POST | `/api/refresh-data` | Trigger data refresh |
-| POST | `/api/auth/login` | User login (JWT) |
-| POST | `/api/auth/signup` | User registration |
 | GET | `/api/portfolio/holdings` | Portfolio holdings |
 | GET | `/api/watchlist` | User watchlist |
 
-## Configuration
+## Model Details
 
-Edit `backend/configs/config.yaml` to customize:
+### Risk Classifier
+- **Algorithm:** XGBoost with `scale_pos_weight` for class imbalance
+- **Target:** High-volatility regime (top 30% of forward 21-day realized vol)
+- **Features:** 34 — volatility (6), momentum (7), technical (7), volume (2), risk (5), cross-sectional (4), market regime (3)
+- **Hyperparameters:** 500 trees, max_depth=5, lr=0.03, subsample=0.7, colsample=0.6
 
-- **Stock universe** — 50 US tech stocks (AAPL, MSFT, GOOGL, AMZN, NVDA, META, etc.)
-- **Risk weights** — Volatility (40%), Drawdown (30%), Sentiment (20%), Liquidity (10%)
-- **Agent parameters** — Feature windows, thresholds, LLM model
-- **Backtesting** — Strategy parameters (MA windows, Z-score thresholds, etc.)
+### Model Iteration
+| Version | Target | AUC | Insight |
+|---------|--------|-----|---------|
+| v1 | Drawdown >10% in 30d | 0.56 | Too noisy — crashes are event-driven |
+| v3 | High volatility (top 30%) | **0.79** | Volatility clusters — learnable signal |
+
+### Feature Engineering (34 features)
+| Category | Count | Examples |
+|----------|-------|----------|
+| Volatility | 6 | 21d/63d rolling vol, ATR, BB width |
+| Momentum | 7 | 5/10/21/63d returns, SMA crossover |
+| Technical | 7 | RSI, MACD (line/signal/histogram), Bollinger %B |
+| Volume | 2 | Volume ratio, down-volume ratio |
+| Risk | 5 | Max drawdown, beta, 52-week distance |
+| Cross-Sectional | 4 | Volatility rank, return rank vs peers |
+| Market Regime | 3 | SPY volatility, SPY return, high-vol flag |
 
 ## License
 
 MIT License
-
-## Acknowledgments
-
-- [yfinance](https://github.com/ranaroussi/yfinance) for market data
-- [FinBERT](https://huggingface.co/ProsusAI/finbert) for financial sentiment analysis
-- [Ollama](https://ollama.ai) for local LLM inference
-- [LangChain](https://langchain.com) + [FAISS](https://github.com/facebookresearch/faiss) for RAG pipeline
-- [Recharts](https://recharts.org) for data visualization

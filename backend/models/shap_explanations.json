@@ -1,0 +1,674 @@
+{
+  "AAPL": {
+    "risk_probability": 0.395693302154541,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.852), beta_vol_interaction (+0.767), vol_change (+0.342)",
+    "risk_drivers_down": "volatility_21d_rank (-0.656), atr_14 (-0.709), volatility_63d (-0.856)",
+    "top_features": {
+      "beta_63d": 0.8518651127815247,
+      "beta_vol_interaction": 0.7671778202056885,
+      "vol_change": 0.3417370617389679,
+      "volume_ratio": 0.12787215411663055,
+      "macd_signal": 0.12587444484233856
+    }
+  },
+  "ABNB": {
+    "risk_probability": 0.22917675971984863,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.302), spy_vol_21d (+0.247), vol_change (+0.188)",
+    "risk_drivers_down": "atr_14 (-0.297), volatility_63d (-0.431), volatility_21d_rank (-0.704)",
+    "top_features": {
+      "beta_63d": 0.302389532327652,
+      "spy_vol_21d": 0.24691618978977203,
+      "vol_change": 0.18825022876262665,
+      "volatility_21d": 0.15740248560905457,
+      "dist_from_52w_high": 0.12881922721862793
+    }
+  },
+  "ADBE": {
+    "risk_probability": 0.5313863754272461,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.965), beta_vol_interaction (+0.327), vol_change (+0.279)",
+    "risk_drivers_down": "volatility_21d_rank (-0.526), dist_from_52w_low (-0.705), beta_63d_rank (-0.714)",
+    "top_features": {
+      "beta_63d": 0.9647709727287292,
+      "beta_vol_interaction": 0.32733866572380066,
+      "vol_change": 0.2787356972694397,
+      "spy_vol_21d": 0.2707672715187073,
+      "dist_from_52w_high": 0.23165945708751678
+    }
+  },
+  "ADI": {
+    "risk_probability": 0.3479784429073334,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.913), spy_vol_21d (+0.341), vol_change (+0.207)",
+    "risk_drivers_down": "volatility_63d (-0.297), volatility_21d_rank (-0.469), atr_14 (-0.573)",
+    "top_features": {
+      "dist_from_52w_low": 0.9126520752906799,
+      "spy_vol_21d": 0.34128817915916443,
+      "vol_change": 0.2072119414806366,
+      "volatility_21d": 0.1391432136297226,
+      "spy_return_21d": 0.047621194273233414
+    }
+  },
+  "AMAT": {
+    "risk_probability": 0.9127230048179626,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+1.104), spy_vol_21d (+0.590), volatility_21d_rank (+0.538)",
+    "risk_drivers_down": "vol_change (-0.089), max_drawdown_63d (-0.205), dist_from_52w_high (-0.244)",
+    "top_features": {
+      "dist_from_52w_low": 1.103898525238037,
+      "spy_vol_21d": 0.5896197557449341,
+      "volatility_21d_rank": 0.5377444624900818,
+      "return_63d": 0.21856966614723206,
+      "beta_63d_rank": 0.21708400547504425
+    }
+  },
+  "AMD": {
+    "risk_probability": 0.9400518536567688,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.725), volatility_21d_rank (+0.576), spy_vol_21d (+0.524)",
+    "risk_drivers_down": "return_63d (-0.053), volatility_21d (-0.094), return_5d (-0.110)",
+    "top_features": {
+      "dist_from_52w_low": 0.7247214913368225,
+      "volatility_21d_rank": 0.5758508443832397,
+      "spy_vol_21d": 0.5240505933761597,
+      "beta_63d_rank": 0.41071617603302,
+      "vol_change": 0.30330854654312134
+    }
+  },
+  "AMZN": {
+    "risk_probability": 0.1762481927871704,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.383), spy_vol_21d (+0.266), volatility_21d (+0.113)",
+    "risk_drivers_down": "max_drawdown_63d (-0.208), atr_14 (-0.616), volatility_21d_rank (-0.864)",
+    "top_features": {
+      "vol_change": 0.3827863335609436,
+      "spy_vol_21d": 0.26616403460502625,
+      "volatility_21d": 0.112969771027565,
+      "volume_ratio": 0.0404805988073349,
+      "spy_return_21d": 0.040299441665410995
+    }
+  },
+  "AVGO": {
+    "risk_probability": 0.8666027188301086,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.802), spy_vol_21d (+0.478), beta_63d_rank (+0.408)",
+    "risk_drivers_down": "max_drawdown_63d (-0.107), macd_line (-0.109), atr_14 (-0.160)",
+    "top_features": {
+      "dist_from_52w_low": 0.8016422390937805,
+      "spy_vol_21d": 0.4780740737915039,
+      "beta_63d_rank": 0.4076364040374756,
+      "vol_change": 0.3458872437477112,
+      "macd_signal": 0.1385936290025711
+    }
+  },
+  "CDNS": {
+    "risk_probability": 0.36197879910469055,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.233), vol_change (+0.152), beta_63d (+0.121)",
+    "risk_drivers_down": "atr_14 (-0.265), volatility_63d (-0.514), volatility_21d_rank (-0.541)",
+    "top_features": {
+      "spy_vol_21d": 0.2331671416759491,
+      "vol_change": 0.15240053832530975,
+      "beta_63d": 0.12149235606193542,
+      "volatility_21d": 0.11720074713230133,
+      "beta_63d_rank": 0.10704092681407928
+    }
+  },
+  "COIN": {
+    "risk_probability": 0.9783099889755249,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "max_drawdown_63d (+0.683), volatility_21d_rank (+0.634), beta_63d_rank (+0.506)",
+    "risk_drivers_down": "return_63d (-0.074), macd_line (-0.078), volatility_21d (-0.100)",
+    "top_features": {
+      "max_drawdown_63d": 0.6826372146606445,
+      "volatility_21d_rank": 0.6341111660003662,
+      "beta_63d_rank": 0.5063968300819397,
+      "spy_vol_21d": 0.3844553232192993,
+      "vol_change": 0.3635813295841217
+    }
+  },
+  "CRM": {
+    "risk_probability": 0.47737351059913635,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.387), spy_vol_21d (+0.373), volatility_21d_rank (+0.245)",
+    "risk_drivers_down": "atr_14 (-0.247), max_drawdown_63d (-0.293), dist_from_52w_low (-0.717)",
+    "top_features": {
+      "beta_63d": 0.3872864544391632,
+      "spy_vol_21d": 0.37310537695884705,
+      "volatility_21d_rank": 0.24539224803447723,
+      "dist_from_52w_high": 0.21068377792835236,
+      "vol_change": 0.18802142143249512
+    }
+  },
+  "CRWD": {
+    "risk_probability": 0.20446045696735382,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.330), vol_change (+0.191), volatility_21d (+0.074)",
+    "risk_drivers_down": "macd_signal (-0.304), volatility_21d_rank (-0.328), macd_line (-0.529)",
+    "top_features": {
+      "spy_vol_21d": 0.33013197779655457,
+      "vol_change": 0.1908055990934372,
+      "volatility_21d": 0.07417542487382889,
+      "volume_ratio": 0.04913802817463875,
+      "dist_from_52w_high": 0.04190072417259216
+    }
+  },
+  "CSCO": {
+    "risk_probability": 0.4532982110977173,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_vol_interaction (+0.784), beta_63d (+0.644), vol_change (+0.323)",
+    "risk_drivers_down": "volatility_63d (-0.443), atr_14 (-0.713), volatility_21d_rank (-0.715)",
+    "top_features": {
+      "beta_vol_interaction": 0.7837570309638977,
+      "beta_63d": 0.6443411111831665,
+      "vol_change": 0.32266759872436523,
+      "macd_line": 0.11828333884477615,
+      "macd_signal": 0.11379743367433548
+    }
+  },
+  "DDOG": {
+    "risk_probability": 0.8477393388748169,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.357), atr_14 (+0.350), beta_63d (+0.328)",
+    "risk_drivers_down": "return_63d (-0.100), sma_cross (-0.240), beta_63d_rank (-0.563)",
+    "top_features": {
+      "vol_change": 0.3566787540912628,
+      "atr_14": 0.3495813012123108,
+      "beta_63d": 0.3277573585510254,
+      "spy_vol_21d": 0.3243277668952942,
+      "macd_signal": 0.3218729496002197
+    }
+  },
+  "DOCU": {
+    "risk_probability": 0.6927317976951599,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+0.649), spy_vol_21d (+0.453), atr_14 (+0.425)",
+    "risk_drivers_down": "vol_change (-0.219), beta_63d_rank (-0.382), dist_from_52w_low (-0.694)",
+    "top_features": {
+      "volatility_21d_rank": 0.648966908454895,
+      "spy_vol_21d": 0.4533630907535553,
+      "atr_14": 0.4250756800174713,
+      "beta_63d": 0.3371308147907257,
+      "dist_from_52w_high": 0.3039413094520569
+    }
+  },
+  "FTNT": {
+    "risk_probability": 0.1961420476436615,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.296), vol_change (+0.258), dist_from_52w_high (+0.208)",
+    "risk_drivers_down": "atr_14 (-0.536), dist_from_52w_low (-0.601), volatility_21d_rank (-0.683)",
+    "top_features": {
+      "spy_vol_21d": 0.29575681686401367,
+      "vol_change": 0.2584059238433838,
+      "dist_from_52w_high": 0.2075890600681305,
+      "volatility_21d": 0.18223638832569122,
+      "volume_ratio": 0.058023851364851
+    }
+  },
+  "GOOGL": {
+    "risk_probability": 0.32696741819381714,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+1.323), vol_change (+0.343), spy_vol_21d (+0.202)",
+    "risk_drivers_down": "max_drawdown_63d (-0.404), atr_14 (-0.604), volatility_21d_rank (-0.762)",
+    "top_features": {
+      "dist_from_52w_low": 1.322519063949585,
+      "vol_change": 0.34272754192352295,
+      "spy_vol_21d": 0.20184601843357086,
+      "macd_histogram": 0.06827736645936966,
+      "spy_return_21d": 0.045874349772930145
+    }
+  },
+  "INTC": {
+    "risk_probability": 0.9177103042602539,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.878), volatility_21d_rank (+0.648), spy_vol_21d (+0.572)",
+    "risk_drivers_down": "sma_cross (-0.074), dist_from_52w_high (-0.102), max_drawdown_63d (-0.329)",
+    "top_features": {
+      "dist_from_52w_low": 0.8775466084480286,
+      "volatility_21d_rank": 0.6479592323303223,
+      "spy_vol_21d": 0.5721239447593689,
+      "atr_14": 0.5288717150688171,
+      "beta_63d_rank": 0.24594935774803162
+    }
+  },
+  "INTU": {
+    "risk_probability": 0.15919701755046844,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.431), spy_vol_21d (+0.350), dist_from_52w_high (+0.181)",
+    "risk_drivers_down": "beta_63d_rank (-0.400), macd_line (-0.751), dist_from_52w_low (-0.753)",
+    "top_features": {
+      "beta_63d": 0.4306984543800354,
+      "spy_vol_21d": 0.3502987325191498,
+      "dist_from_52w_high": 0.1814754456281662,
+      "macd_histogram": 0.12321246415376663,
+      "return_vol_adj": 0.10619137436151505
+    }
+  },
+  "KLAC": {
+    "risk_probability": 0.8408106565475464,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+1.108), spy_vol_21d (+0.645), volatility_21d_rank (+0.514)",
+    "risk_drivers_down": "dist_from_52w_high (-0.242), macd_signal (-0.249), vol_change (-0.335)",
+    "top_features": {
+      "dist_from_52w_low": 1.1080347299575806,
+      "spy_vol_21d": 0.644838809967041,
+      "volatility_21d_rank": 0.5136511325836182,
+      "beta_63d_rank": 0.2624965012073517,
+      "beta_63d": 0.15066733956336975
+    }
+  },
+  "LRCX": {
+    "risk_probability": 0.9864294528961182,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+1.052), dist_from_52w_low (+0.924), beta_63d_rank (+0.750)",
+    "risk_drivers_down": "max_drawdown_63d (-0.133), dist_from_52w_high (-0.184), vol_change (-0.208)",
+    "top_features": {
+      "volatility_21d_rank": 1.0517199039459229,
+      "dist_from_52w_low": 0.9236423969268799,
+      "beta_63d_rank": 0.7497175335884094,
+      "return_63d": 0.5587683916091919,
+      "spy_vol_21d": 0.5199413895606995
+    }
+  },
+  "MCHP": {
+    "risk_probability": 0.7325423955917358,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.787), volatility_21d_rank (+0.628), spy_vol_21d (+0.446)",
+    "risk_drivers_down": "beta_63d (-0.171), atr_14 (-0.289), dist_from_52w_high (-0.309)",
+    "top_features": {
+      "dist_from_52w_low": 0.7865800857543945,
+      "volatility_21d_rank": 0.6278325319290161,
+      "spy_vol_21d": 0.446085125207901,
+      "vol_change": 0.24944186210632324,
+      "spy_return_21d": 0.04523910954594612
+    }
+  },
+  "META": {
+    "risk_probability": 0.3202982246875763,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.373), spy_vol_21d (+0.268), max_drawdown_63d (+0.159)",
+    "risk_drivers_down": "macd_line (-0.138), atr_14 (-0.549), volatility_21d_rank (-0.770)",
+    "top_features": {
+      "vol_change": 0.3731900751590729,
+      "spy_vol_21d": 0.26804864406585693,
+      "max_drawdown_63d": 0.15935957431793213,
+      "dist_from_52w_high": 0.11968319863080978,
+      "macd_histogram": 0.062418095767498016
+    }
+  },
+  "MRVL": {
+    "risk_probability": 0.9299757480621338,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d_rank (+0.521), spy_vol_21d (+0.498), vol_change (+0.478)",
+    "risk_drivers_down": "return_63d (-0.066), max_drawdown_63d (-0.070), macd_line (-0.085)",
+    "top_features": {
+      "beta_63d_rank": 0.521226704120636,
+      "spy_vol_21d": 0.4982816278934479,
+      "vol_change": 0.47767138481140137,
+      "dist_from_52w_low": 0.383191853761673,
+      "dist_from_52w_high": 0.23643618822097778
+    }
+  },
+  "MSFT": {
+    "risk_probability": 0.33182263374328613,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.745), beta_vol_interaction (+0.455), vol_change (+0.265)",
+    "risk_drivers_down": "atr_14 (-0.577), volatility_21d_rank (-0.672), volatility_63d (-0.777)",
+    "top_features": {
+      "beta_63d": 0.7451673150062561,
+      "beta_vol_interaction": 0.4548533856868744,
+      "vol_change": 0.2653292417526245,
+      "macd_signal": 0.25835686922073364,
+      "volume_ratio": 0.0888637900352478
+    }
+  },
+  "MU": {
+    "risk_probability": 0.9803722500801086,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+0.995), dist_from_52w_low (+0.805), beta_63d_rank (+0.695)",
+    "risk_drivers_down": "volatility_21d (-0.166), dist_from_52w_high (-0.173), max_drawdown_63d (-0.192)",
+    "top_features": {
+      "volatility_21d_rank": 0.9954151511192322,
+      "dist_from_52w_low": 0.8048924803733826,
+      "beta_63d_rank": 0.695457935333252,
+      "return_63d": 0.5185698866844177,
+      "beta_63d": 0.44493865966796875
+    }
+  },
+  "NET": {
+    "risk_probability": 0.9089736938476562,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.711), spy_vol_21d (+0.601), vol_change (+0.408)",
+    "risk_drivers_down": "bb_position (-0.046), return_63d (-0.064), macd_line (-0.098)",
+    "top_features": {
+      "dist_from_52w_low": 0.7110092043876648,
+      "spy_vol_21d": 0.6009275913238525,
+      "vol_change": 0.40801477432250977,
+      "atr_14": 0.2555662989616394,
+      "volatility_21d_rank": 0.17921921610832214
+    }
+  },
+  "NFLX": {
+    "risk_probability": 0.27838775515556335,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_vol_interaction (+0.587), beta_63d (+0.515), vol_change (+0.461)",
+    "risk_drivers_down": "volatility_21d_rank (-0.664), dist_from_52w_low (-0.875), beta_63d_rank (-0.885)",
+    "top_features": {
+      "beta_vol_interaction": 0.5867459774017334,
+      "beta_63d": 0.514703631401062,
+      "vol_change": 0.4613272249698639,
+      "spy_vol_21d": 0.25634661316871643,
+      "dist_from_52w_high": 0.14669552445411682
+    }
+  },
+  "NOW": {
+    "risk_probability": 0.7201242446899414,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "beta_63d (+0.630), dist_from_52w_high (+0.436), spy_vol_21d (+0.336)",
+    "risk_drivers_down": "dist_from_52w_low (-0.552), volatility_21d_rank (-0.644), beta_63d_rank (-0.645)",
+    "top_features": {
+      "beta_63d": 0.6295164823532104,
+      "dist_from_52w_high": 0.4360032379627228,
+      "spy_vol_21d": 0.3360435962677002,
+      "vol_change": 0.3083246648311615,
+      "macd_signal": 0.2557334899902344
+    }
+  },
+  "NVDA": {
+    "risk_probability": 0.44325461983680725,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.706), spy_vol_21d (+0.412), vol_change (+0.288)",
+    "risk_drivers_down": "beta_63d (-0.276), atr_14 (-0.431), volatility_21d_rank (-0.586)",
+    "top_features": {
+      "dist_from_52w_low": 0.7058990001678467,
+      "spy_vol_21d": 0.4120664894580841,
+      "vol_change": 0.28775301575660706,
+      "macd_line": 0.10137968510389328,
+      "volatility_21d": 0.09852167963981628
+    }
+  },
+  "NXPI": {
+    "risk_probability": 0.44395557045936584,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+0.486), spy_vol_21d (+0.299), dist_from_52w_low (+0.227)",
+    "risk_drivers_down": "max_drawdown_63d (-0.137), dist_from_52w_high (-0.239), atr_14 (-0.422)",
+    "top_features": {
+      "volatility_21d_rank": 0.486428439617157,
+      "spy_vol_21d": 0.29876500368118286,
+      "dist_from_52w_low": 0.2273818552494049,
+      "vol_change": 0.0671117752790451,
+      "spy_return_21d": 0.03910095989704132
+    }
+  },
+  "OKTA": {
+    "risk_probability": 0.44819024205207825,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.465), atr_14 (+0.253), dist_from_52w_high (+0.202)",
+    "risk_drivers_down": "max_drawdown_63d (-0.292), volatility_21d_rank (-0.403), dist_from_52w_low (-0.550)",
+    "top_features": {
+      "spy_vol_21d": 0.4646739661693573,
+      "atr_14": 0.25310570001602173,
+      "dist_from_52w_high": 0.20212778449058533,
+      "beta_63d": 0.1780141443014145,
+      "beta_63d_rank": 0.10923155397176743
+    }
+  },
+  "ORCL": {
+    "risk_probability": 0.8781371712684631,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "max_drawdown_63d (+0.596), volatility_21d_rank (+0.454), spy_vol_21d (+0.380)",
+    "risk_drivers_down": "atr_14 (-0.081), volatility_21d (-0.146), beta_63d (-0.162)",
+    "top_features": {
+      "max_drawdown_63d": 0.5957400798797607,
+      "volatility_21d_rank": 0.45399168133735657,
+      "spy_vol_21d": 0.3800412714481354,
+      "vol_change": 0.3312233090400696,
+      "dist_from_52w_high": 0.24962759017944336
+    }
+  },
+  "PANW": {
+    "risk_probability": 0.25181129574775696,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.266), vol_change (+0.224), volatility_21d (+0.126)",
+    "risk_drivers_down": "volatility_63d (-0.345), atr_14 (-0.359), volatility_21d_rank (-0.611)",
+    "top_features": {
+      "spy_vol_21d": 0.2663005590438843,
+      "vol_change": 0.22399717569351196,
+      "volatility_21d": 0.1259552389383316,
+      "macd_signal": 0.04941880702972412,
+      "spy_return_21d": 0.04410554841160774
+    }
+  },
+  "QCOM": {
+    "risk_probability": 0.3261512815952301,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.393), spy_vol_21d (+0.329), volatility_21d (+0.124)",
+    "risk_drivers_down": "atr_14 (-0.233), max_drawdown_63d (-0.277), volatility_21d_rank (-0.692)",
+    "top_features": {
+      "vol_change": 0.39278239011764526,
+      "spy_vol_21d": 0.3287543058395386,
+      "volatility_21d": 0.12423397600650787,
+      "dist_from_52w_high": 0.09929026663303375,
+      "macd_signal": 0.05837186425924301
+    }
+  },
+  "QRVO": {
+    "risk_probability": 0.46644291281700134,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.342), dist_from_52w_low (+0.290), dist_from_52w_high (+0.168)",
+    "risk_drivers_down": "volatility_21d_rank (-0.250), max_drawdown_63d (-0.263), atr_14 (-0.265)",
+    "top_features": {
+      "spy_vol_21d": 0.34241539239883423,
+      "dist_from_52w_low": 0.28971555829048157,
+      "dist_from_52w_high": 0.16822850704193115,
+      "vol_change": 0.15735900402069092,
+      "volatility_21d": 0.1205090805888176
+    }
+  },
+  "RBLX": {
+    "risk_probability": 0.9030858278274536,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+0.577), max_drawdown_63d (+0.411), spy_vol_21d (+0.411)",
+    "risk_drivers_down": "return_5d (-0.087), volatility_21d (-0.123), beta_63d_rank (-0.123)",
+    "top_features": {
+      "volatility_21d_rank": 0.5767815113067627,
+      "max_drawdown_63d": 0.41109082102775574,
+      "spy_vol_21d": 0.41085532307624817,
+      "dist_from_52w_low": 0.31907734274864197,
+      "atr_14": 0.28634926676750183
+    }
+  },
+  "SHOP": {
+    "risk_probability": 0.9498936533927917,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.781), spy_vol_21d (+0.536), beta_63d_rank (+0.472)",
+    "risk_drivers_down": "bb_position (-0.040), return_63d (-0.047), max_drawdown_63d (-0.094)",
+    "top_features": {
+      "dist_from_52w_low": 0.7806859612464905,
+      "spy_vol_21d": 0.5358519554138184,
+      "beta_63d_rank": 0.47216105461120605,
+      "volatility_21d_rank": 0.3963877856731415,
+      "vol_change": 0.31059929728507996
+    }
+  },
+  "SNOW": {
+    "risk_probability": 0.8665885329246521,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.469), dist_from_52w_low (+0.452), vol_change (+0.373)",
+    "risk_drivers_down": "beta_63d_rank (-0.067), macd_line (-0.077), beta_63d (-0.169)",
+    "top_features": {
+      "spy_vol_21d": 0.469356894493103,
+      "dist_from_52w_low": 0.451873242855072,
+      "vol_change": 0.37254324555397034,
+      "volatility_21d_rank": 0.17670214176177979,
+      "dist_from_52w_high": 0.16570834815502167
+    }
+  },
+  "SNPS": {
+    "risk_probability": 0.46087646484375,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "max_drawdown_63d (+0.400), spy_vol_21d (+0.368), vol_change (+0.204)",
+    "risk_drivers_down": "beta_63d (-0.153), volatility_21d_rank (-0.299), atr_14 (-0.391)",
+    "top_features": {
+      "max_drawdown_63d": 0.40020012855529785,
+      "spy_vol_21d": 0.3682808578014374,
+      "vol_change": 0.20366491377353668,
+      "volatility_21d": 0.11473476141691208,
+      "dist_from_52w_high": 0.07829343527555466
+    }
+  },
+  "SWKS": {
+    "risk_probability": 0.7114002704620361,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.515), volatility_21d_rank (+0.451), atr_14 (+0.245)",
+    "risk_drivers_down": "macd_line (-0.088), beta_63d (-0.151), dist_from_52w_low (-0.272)",
+    "top_features": {
+      "spy_vol_21d": 0.5149579048156738,
+      "volatility_21d_rank": 0.45067328214645386,
+      "atr_14": 0.24534852802753448,
+      "dist_from_52w_high": 0.18323330581188202,
+      "max_drawdown_63d": 0.15622225403785706
+    }
+  },
+  "TEAM": {
+    "risk_probability": 0.8010091781616211,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "atr_14 (+0.698), dist_from_52w_high (+0.622), volatility_21d_rank (+0.532)",
+    "risk_drivers_down": "beta_63d_rank (-0.114), vol_change (-0.183), dist_from_52w_low (-0.611)",
+    "top_features": {
+      "atr_14": 0.6982198357582092,
+      "dist_from_52w_high": 0.622074544429779,
+      "volatility_21d_rank": 0.5324593782424927,
+      "beta_63d": 0.33459991216659546,
+      "spy_vol_21d": 0.1990422010421753
+    }
+  },
+  "TSLA": {
+    "risk_probability": 0.7327234148979187,
+    "risk_level": "High",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "dist_from_52w_low (+0.839), spy_vol_21d (+0.513), vol_change (+0.316)",
+    "risk_drivers_down": "macd_line (-0.182), max_drawdown_63d (-0.248), atr_14 (-0.264)",
+    "top_features": {
+      "dist_from_52w_low": 0.8390472531318665,
+      "spy_vol_21d": 0.512582004070282,
+      "vol_change": 0.31636443734169006,
+      "beta_63d_rank": 0.15543045103549957,
+      "volatility_21d": 0.08109026402235031
+    }
+  },
+  "TXN": {
+    "risk_probability": 0.4178607761859894,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "volatility_21d_rank (+0.332), spy_vol_21d (+0.261), max_drawdown_63d (+0.148)",
+    "risk_drivers_down": "vol_change (-0.187), volatility_63d (-0.194), atr_14 (-0.472)",
+    "top_features": {
+      "volatility_21d_rank": 0.3321133255958557,
+      "spy_vol_21d": 0.26146745681762695,
+      "max_drawdown_63d": 0.14776581525802612,
+      "beta_63d": 0.09428606927394867,
+      "volatility_21d": 0.08524537831544876
+    }
+  },
+  "UBER": {
+    "risk_probability": 0.455040842294693,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.275), spy_vol_21d (+0.269), macd_line (+0.102)",
+    "risk_drivers_down": "volatility_63d (-0.108), volatility_21d_rank (-0.360), atr_14 (-0.375)",
+    "top_features": {
+      "vol_change": 0.2745969295501709,
+      "spy_vol_21d": 0.2694116234779358,
+      "macd_line": 0.10151415318250656,
+      "macd_signal": 0.0946226641535759,
+      "volatility_21d": 0.06398610025644302
+    }
+  },
+  "WDAY": {
+    "risk_probability": 0.5083003044128418,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.379), beta_63d (+0.333), vol_change (+0.330)",
+    "risk_drivers_down": "beta_63d_rank (-0.315), dist_from_52w_low (-0.676), volatility_21d_rank (-0.708)",
+    "top_features": {
+      "spy_vol_21d": 0.37925633788108826,
+      "beta_63d": 0.33297479152679443,
+      "vol_change": 0.32997366786003113,
+      "dist_from_52w_high": 0.23419278860092163,
+      "max_drawdown_63d": 0.1892530918121338
+    }
+  },
+  "ZM": {
+    "risk_probability": 0.2751315236091614,
+    "risk_level": "Low",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "spy_vol_21d (+0.281), vol_change (+0.235), beta_63d (+0.131)",
+    "risk_drivers_down": "atr_14 (-0.298), max_drawdown_63d (-0.382), volatility_21d_rank (-0.591)",
+    "top_features": {
+      "spy_vol_21d": 0.28064897656440735,
+      "vol_change": 0.23474200069904327,
+      "beta_63d": 0.13139955699443817,
+      "volatility_21d": 0.10109928250312805,
+      "macd_signal": 0.060338668525218964
+    }
+  },
+  "ZS": {
+    "risk_probability": 0.3113771080970764,
+    "risk_level": "Medium",
+    "shap_base": 0.020625630393624306,
+    "risk_drivers_up": "vol_change (+0.349), max_drawdown_63d (+0.300), spy_vol_21d (+0.296)",
+    "risk_drivers_down": "sma_cross (-0.437), macd_line (-0.452), volatility_21d_rank (-0.486)",
+    "top_features": {
+      "vol_change": 0.3492155075073242,
+      "max_drawdown_63d": 0.3000825047492981,
+      "spy_vol_21d": 0.2956107258796692,
+      "dist_from_52w_high": 0.23975850641727448,
+      "beta_63d": 0.22604064643383026
+    }
+  }
+}

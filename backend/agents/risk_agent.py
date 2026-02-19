@@ -1,6 +1,6 @@
 """
 Risk Scoring Agent - Compute composite risk scores
-Now using PostgreSQL for data persistence
+Uses ML model (XGBoost) when available, falls back to manual weighted formula.
 """
 import pandas as pd
 import numpy as np
@@ -10,17 +10,34 @@ from datetime import datetime
 
 class RiskScoringAgent:
     """
-    Agent responsible for computing composite risk scores
+    Agent responsible for computing composite risk scores.
+    Tries ML model first, falls back to manual formula.
     """
     
     def __init__(self):
         self.config = load_config()
+        self.ml_scorer = None
+        self._try_load_ml()
         self.weights = {
             'volatility': 0.4,
             'drawdown': 0.3,
             'sentiment': 0.2,
             'liquidity': 0.1
         }
+    
+    def _try_load_ml(self):
+        """Try to load the ML risk scorer."""
+        try:
+            from backend.services.ml_risk_scorer import MLRiskScorer
+            self.ml_scorer = MLRiskScorer()
+            if self.ml_scorer.is_ml_available:
+                log.info("ML Risk Model loaded successfully")
+            else:
+                log.info("ML model files not found — using manual formula")
+                self.ml_scorer = None
+        except Exception as e:
+            log.warning(f"Could not load ML scorer: {e}")
+            self.ml_scorer = None
     
     def normalize_feature(self, series: pd.Series, inverse: bool = False) -> pd.Series:
         """
@@ -114,72 +131,105 @@ class RiskScoringAgent:
     
     def process(self):
         """
-        Main processing method - Load features and sentiment, compute risk, save to DB
+        Main processing method - Load features and sentiment, compute risk, save to DB.
+        Uses ML model when available, falls back to manual scoring.
         """
         log.info("=" * 60)
         log.info("RISK SCORING AGENT - Computing Risk Scores")
         log.info("=" * 60)
         
         with DatabaseService() as db:
-            # Get latest market data with features
-            log.info("Loading market features from database...")
-            market_data = db.get_market_data(days=365)
-            
-            if market_data.empty:
-                log.error("No market data found!")
-                return None
-            
-            # We need to recompute features first (or load from a features table)
-            # For now, let's get the latest risk scores as they already have features
-            log.info("Loading latest risk scores...")
-            risk_scores = db.get_latest_risk_scores()
-            
-            if risk_scores.empty:
-                log.error("No risk scores found! Run market agent first.")
-                return None
-            
-            # Get recent sentiment (7-day average)
-            log.info("Loading recent sentiment...")
-            sentiment_data = db.get_recent_sentiment(days=7)
-            
-            # Aggregate sentiment by stock
-            if not sentiment_data.empty:
-                sentiment_avg = sentiment_data.groupby('stock_symbol').agg({
-                    'avg_sentiment': 'mean'
-                }).reset_index()
-                
-                # Merge with risk scores
-                risk_scores = risk_scores.merge(
-                    sentiment_avg,
-                    left_on='symbol',
-                    right_on='stock_symbol',
-                    how='left'
-                )
-                risk_scores['avg_sentiment'] = risk_scores['avg_sentiment_y'].fillna(0)
+            # Try ML-based scoring first
+            if self.ml_scorer and self.ml_scorer.is_ml_available:
+                log.info("Using ML model for risk scoring...")
+                return self._process_ml(db)
             else:
-                risk_scores['avg_sentiment'] = 0
+                log.info("Using manual formula for risk scoring...")
+                return self._process_manual(db)
+    
+    def _process_ml(self, db):
+        """Score stocks using SHAP pre-computed scores (calibrated from training pipeline)."""
+        try:
+            result_df = self.ml_scorer.score_stocks_from_shap()
             
-            # Add current date
-            risk_scores['Date'] = datetime.now().date()
+            if result_df.empty:
+                log.warning("SHAP scores not available, falling back to manual")
+                return self._process_manual(db)
             
-            # Note: In full implementation, we'd recompute features from market_data
-            # For now, we're using existing risk scores
-            log.info("Risk scores already computed from previous run")
-            log.info(f"Found {len(risk_scores)} stocks with risk scores")
+            # Add required columns for DB compatibility
+            result_df['avg_sentiment'] = 0.0
+            result_df['norm_volatility'] = result_df['risk_score']
+            result_df['norm_drawdown'] = 0.5
+            result_df['norm_sentiment'] = 0.5
+            result_df['norm_liquidity'] = 0.5
+            result_df['Date'] = datetime.now().date()
             
-            # Save to database
-            log.info("Saving risk scores to database...")
-            db.save_risk_scores(risk_scores)
+            # Save to DB
+            log.info("Saving ML risk scores to database...")
+            db.save_risk_scores(result_df, upsert=True)
             
-            # Save to risk history for trending
-            log.info("Saving to risk history...")
+            try:
+                db.save_risk_history(result_df[['symbol', 'risk_score', 'risk_level']])
+                log.info("Risk history updated")
+            except Exception as e:
+                log.warning(f"Could not save risk history: {e}")
+            
+            log.info("=" * 60)
+            log.info(f"ML RISK SCORING COMPLETE — {len(result_df)} stocks scored")
+            log.info("=" * 60)
+            
+            return result_df
+            
+        except Exception as e:
+            log.error(f"ML scoring failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._process_manual(db)
+    
+    def _process_manual(self, db):
+        """Fallback: manual weighted formula risk scoring."""
+        log.info("Loading market features from database...")
+        market_data = db.get_market_data(days=365)
+        
+        if market_data.empty:
+            log.error("No market data found!")
+            return None
+        
+        log.info("Loading latest risk scores...")
+        risk_scores = db.get_latest_risk_scores()
+        
+        if risk_scores.empty:
+            log.error("No risk scores found! Run market agent first.")
+            return None
+        
+        log.info("Loading recent sentiment...")
+        sentiment_data = db.get_recent_sentiment(days=7)
+        
+        if not sentiment_data.empty:
+            sentiment_avg = sentiment_data.groupby('stock_symbol').agg({
+                'avg_sentiment': 'mean'
+            }).reset_index()
+            risk_scores = risk_scores.merge(
+                sentiment_avg, left_on='symbol', right_on='stock_symbol', how='left'
+            )
+            risk_scores['avg_sentiment'] = risk_scores['avg_sentiment_y'].fillna(0)
+        else:
+            risk_scores['avg_sentiment'] = 0
+        
+        risk_scores['Date'] = datetime.now().date()
+        
+        log.info(f"Found {len(risk_scores)} stocks with risk scores")
+        
+        db.save_risk_scores(risk_scores)
+        
+        try:
             db.save_risk_history(risk_scores[['symbol', 'risk_score', 'risk_level']])
-            
-            log.info("=" * 60)
-            log.info("✓ RISK SCORING AGENT COMPLETED SUCCESSFULLY")
-            log.info("=" * 60)
-            
-            return risk_scores
+        except Exception as e:
+            log.warning(f"Could not save risk history: {e}")
+        
+        log.info("✓ MANUAL RISK SCORING COMPLETED")
+        
+        return risk_scores
 
 def main():
     """Main execution"""
