@@ -47,6 +47,7 @@ python-dateutil==2.9.0.post0
 pytz==2024.2
 tqdm==4.67.1
 scipy>=1.11.0
+APScheduler>=3.10.0
 
 # LLM
 ollama==0.4.4
